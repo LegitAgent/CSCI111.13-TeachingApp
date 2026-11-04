@@ -1,12 +1,25 @@
 import { useState, type SubmitEvent } from 'react'
+import { auth } from './firebase.ts'
+import { signInWithEmailAndPassword } from 'firebase/auth'
 import './LoginPage.css'
+
 
 function LoginPage() {
   const [message, setMessage] = useState('')
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+    // stops the browser from executing its default built-in action for a specific user interaction
     event.preventDefault()
-    setMessage('Sign-in is not set up yet.')
+    const formData = new FormData(event.currentTarget)
+    const email = String(formData.get('email') ?? '')
+    const password = String(formData.get('password') ?? '')
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+      setMessage('Signed In')
+    } catch {
+      setMessage('Failed, Incorrect credentials')
+    }
   }
 
   return (
