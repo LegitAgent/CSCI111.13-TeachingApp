@@ -18,6 +18,12 @@
   gap: 12px;
 }
 
+.login-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .login-form h1 {
   margin: 0 0 12px;
   font-size: 28px;
@@ -48,4 +54,12 @@
 
 .login-form p {
   margin: 0;
+}
+
+.login-form a {
+  color: #000;
+}
+
+.login-form button:disabled {
+  cursor: wait;
 }
