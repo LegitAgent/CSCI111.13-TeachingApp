@@ -1,0 +1,6 @@
+* {
+    margin: 0;
+    padding: 0;         /* 1. Clears default padding (like on <ul> or <body>) */
+    border: 0;
+    box-sizing: border-box; /* 2. Prevents padding/borders from expanding widths */
+}
