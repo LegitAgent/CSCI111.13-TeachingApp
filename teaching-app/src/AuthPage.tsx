@@ -1,5 +1,8 @@
+'use client'
+
 import { useEffect, useState, type SubmitEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -24,7 +27,7 @@ type AuthPageProps = {
 }
 
 function AuthPage({ mode }: AuthPageProps) {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -65,10 +68,10 @@ function AuthPage({ mode }: AuthPageProps) {
         const result = await createUserWithEmailAndPassword(auth, email, password)
         accountCreated = true
         await updateProfile(result.user, { displayName: `@${username}` })
-        navigate(getDashboardPathFor(username, result.user.uid), { replace: true })
+        router.replace(getDashboardPathFor(username, result.user.uid))
       } else {
         const result = await signInWithEmailAndPassword(auth, email, password)
-        navigate(getDashboardPath(result.user) ?? '/signup', { replace: true })
+        router.replace(getDashboardPath(result.user) ?? '/signup')
       }
     } catch {
       setMessage(
@@ -89,7 +92,7 @@ function AuthPage({ mode }: AuthPageProps) {
 
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider())
-      navigate(getDashboardPath(result.user) ?? '/signup', { replace: true })
+      router.replace(getDashboardPath(result.user) ?? '/signup')
     } catch {
       setMessage('Google sign-in was not completed.')
     } finally {
@@ -114,7 +117,7 @@ function AuthPage({ mode }: AuthPageProps) {
 
     try {
       await updateProfile(user, { displayName: `@${username}` })
-      navigate(getDashboardPathFor(username, user.uid), { replace: true })
+      router.replace(getDashboardPathFor(username, user.uid))
     } catch {
       setMessage('Could not save your username. Please try again.')
     } finally {
@@ -166,7 +169,7 @@ function AuthPage({ mode }: AuthPageProps) {
           <>
             <h1>Signed in</h1>
             <p>@{getUsername(user)}</p>
-            <Link to={getDashboardPath(user) ?? '/signup'}>Go to dashboard</Link>
+            <Link href={getDashboardPath(user) ?? '/signup'}>Go to dashboard</Link>
             <button type="button" onClick={handleSignOut} disabled={isSubmitting}>
               Sign out
             </button>
@@ -228,7 +231,7 @@ function AuthPage({ mode }: AuthPageProps) {
             </button>
             <p>
               {mode === 'signup' ? 'Already have an account? ' : 'Need an account? '}
-              <Link to={mode === 'signup' ? '/login' : '/signup'}>
+              <Link href={mode === 'signup' ? '/login' : '/signup'}>
                 {mode === 'signup' ? 'Login' : 'Sign up'}
               </Link>
             </p>

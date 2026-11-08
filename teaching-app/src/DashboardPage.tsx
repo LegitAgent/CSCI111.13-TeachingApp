@@ -1,13 +1,14 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
-import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import { redirect, useRouter } from 'next/navigation'
 import { auth } from '@app-firebase/config'
 import { getDashboardPath, getUsername } from './dashboardPath'
 import './LoginPage.css'
 
-function DashboardPage() {
-  const { dashboardSlug } = useParams()
-  const navigate = useNavigate()
+function DashboardPage({ dashboardSlug }: { dashboardSlug: string }) {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [message, setMessage] = useState('')
@@ -22,14 +23,10 @@ function DashboardPage() {
   async function handleSignOut() {
     try {
       await signOut(auth)
-      navigate('/login', { replace: true })
+      router.replace('/login')
     } catch {
       setMessage('Could not sign out. Please try again.')
     }
-  }
-
-  if (!dashboardSlug?.startsWith('dashboard-')) {
-    return <main>Page not found. <Link to="/">Home</Link></main>
   }
 
   if (isCheckingAuth) {
@@ -37,17 +34,17 @@ function DashboardPage() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    redirect('/login')
   }
 
   const dashboardPath = getDashboardPath(user)
 
   if (!dashboardPath) {
-    return <Navigate to="/signup" replace />
+    redirect('/signup')
   }
 
   if (`/${dashboardSlug}` !== dashboardPath) {
-    return <Navigate to={dashboardPath} replace />
+    redirect(dashboardPath)
   }
 
   return (
