@@ -12,7 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@firebase': path.resolve(__dirname, './firebase'), // Maps your root firebase folder
+      '@app-firebase': path.resolve(__dirname, './firebase'),
     },
   },
 })

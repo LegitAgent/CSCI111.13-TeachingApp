@@ -6,7 +6,7 @@
   ],
   "compilerOptions": {
     "paths": {
-      "@firebase/*": ["./firebase/*"]
+      "@app-firebase/*": ["./firebase/*"]
     }
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
-import { auth } from '@firebase/config'
+import { auth } from '@app-firebase/config'
 import { getDashboardPath, getUsername } from './dashboardPath'
 import './LoginPage.css'
 
