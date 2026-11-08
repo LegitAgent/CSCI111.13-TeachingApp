@@ -20,7 +20,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    
+    "paths": {
+      "@/*": ["./src/*"],
+      "@firebase/*": ["./firebase/*"]
+    },
   },
-  "include": ["src"]
+  "include": ["src", "firebase"],
 }

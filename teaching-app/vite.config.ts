@@ -1,6 +1,7 @@
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { defineConfig } from 'vite'
+import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,4 +9,10 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@firebase': path.resolve(__dirname, './firebase'), // Maps your root firebase folder
+    },
+  },
 })

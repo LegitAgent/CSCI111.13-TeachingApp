@@ -10,7 +10,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth'
-import { auth } from './firebase'
+import { auth } from '@firebase/config'
 import {
   getDashboardPath,
   getDashboardPathFor,
