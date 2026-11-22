@@ -45,7 +45,7 @@ export default function TutorPopup({ user, lessonId, onProgress, assessmentHref,
           <h2 id="tutor-popup-title">Your PreCalPal tutor</h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close tutor chat">Close ✕</button>
         </header>
-        {started && <TutorChat user={user} lessonId={lessonId} onProgress={onProgress} assessmentHref={assessmentHref} />}
+        {started && <TutorChat user={user} lessonId={lessonId} onProgress={onProgress} assessmentHref={assessmentHref} active={open} />}
       </dialog>
     </>
   )

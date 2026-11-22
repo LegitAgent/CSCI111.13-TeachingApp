@@ -4,13 +4,15 @@ import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import type { User } from 'firebase/auth'
 import type { ChatEvent, ChatState } from './chatData'
 import Link from 'next/link'
+import { useTutorSpeech } from './useTutorSpeech'
 import './TutorChat.css'
 
-export default function TutorChat({ user, lessonId, onProgress, assessmentHref }: {
+export default function TutorChat({ user, lessonId, onProgress, assessmentHref, active = true }: {
   user: User
   lessonId: string
   onProgress: (conceptIds: string[]) => void
   assessmentHref: string
+  active?: boolean
 }) {
   const [state, setState] = useState<ChatState | null>(null)
   const [draft, setDraft] = useState('')
@@ -20,12 +22,25 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref }
   const [attempt, setAttempt] = useState(0)
   const [streamingReply, setStreamingReply] = useState('')
   const [submitted, setSubmitted] = useState('')
+  const [autoRead, setAutoRead] = useState(false)
+  const speech = useTutorSpeech(active)
+  const { speak, supported } = speech
+  const lastRead = useRef('')
   const activeRequest = useRef<AbortController | null>(null)
   const retry = useRef<{ message: string; requestId: string; revision: number } | null>(null)
   const messageList = useRef<HTMLOListElement | null>(null)
   const progressCallback = useRef(onProgress)
   useEffect(() => { progressCallback.current = onProgress }, [onProgress])
   const endpoint = `/api/lessons/${encodeURIComponent(lessonId)}/chat`
+
+  useEffect(() => {
+    if (!autoRead || !active || !supported) return
+    const latest = state?.messages.findLast((message) => message.role === 'assistant')
+    if (latest && latest.id !== lastRead.current) {
+      lastRead.current = latest.id
+      speak(latest)
+    }
+  }, [state?.messages, autoRead, active, supported, speak])
 
   useEffect(() => {
     if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight
@@ -62,6 +77,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref }
     if (!state || state.completed || answering || activeRequest.current || !draft.trim()) return
     const controller = new AbortController()
     activeRequest.current = controller
+    speech.stop()
     const answer = draft.trim()
     const turn = retry.current?.message === answer && retry.current.revision === state.revision
       ? retry.current : { message: answer, requestId: crypto.randomUUID(), revision: state.revision }
@@ -153,11 +169,30 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref }
             <>
               <p>Explain your reasoning in your own words. You can ask for a hint or clarification.</p>
               <p className="tutor-history-note">Your recent conversation is shown below. Completed replies are saved automatically.</p>
+              {speech.supported ? (
+                <div className="tutor-audio-controls">
+                  <label>
+                    <input type="checkbox" checked={autoRead} onChange={(event) => {
+                      setAutoRead(event.target.checked)
+                      if (!event.target.checked) speech.stop()
+                    }} />
+                    Read tutor replies aloud
+                  </label>
+                  <button type="button" disabled={!speech.speakingId} onClick={speech.stop}>Stop audio</button>
+                </div>
+              ) : <p className="tutor-history-note">Read-aloud audio is unavailable in this browser.</p>}
+              {speech.error && <p role="status" className="tutor-audio-error">{speech.error}</p>}
               <ol ref={messageList} className="tutor-messages" aria-label="Conversation with your tutor" tabIndex={0}>
                 {state.messages.map((message) => (
                   <li className={`tutor-message tutor-message-${message.role}`} key={message.id}>
                     <strong>{message.role === 'user' ? 'You' : 'Tutor'}</strong>
                     <p>{message.content}</p>
+                    {message.role === 'assistant' && speech.supported && (
+                      <button className="tutor-read-aloud" type="button" aria-pressed={speech.speakingId === message.id}
+                        onClick={() => speech.speakingId === message.id ? speech.stop() : speech.speak(message)}>
+                        {speech.speakingId === message.id ? 'Stop reading' : 'Read aloud'}
+                      </button>
+                    )}
                   </li>
                 ))}
                 {submitted && (
@@ -189,6 +224,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref }
             setLoading(true)
             setError('')
             setState(null)
+            speech.stop()
             setAttempt((value) => value + 1)
           }}>Reload conversation</button>}
         </>
