@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { redirect, useRouter } from 'next/navigation'
 import { auth } from '@app-firebase/config'
@@ -142,6 +143,9 @@ function DashboardPage({ dashboardSlug }: { dashboardSlug: string }) {
                         <div><dt>Best assessment score</dt><dd>{progress?.bestScore == null ? 'Not assessed' : `${progress.bestScore}%`}</dd></div>
                         <div><dt>Assessment target</dt><dd>{lesson.passingScorePercent}%</dd></div>
                       </dl>
+                      <Link className="dashboard-link" href={`${dashboardPath}/lessons/${encodeURIComponent(lesson.id)}`}>
+                        {progress?.mastered ? 'Review lesson' : progress ? 'Continue lesson' : 'Start lesson'}
+                      </Link>
                     </article>
                   </li>
                 )

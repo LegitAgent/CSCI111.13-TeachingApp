@@ -1,0 +1,18 @@
+.lesson-page nav { margin-bottom: 32px; }
+.lesson-page a { color: #111; text-underline-offset: 3px; }
+.lesson-page a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
+.lesson-introduction { margin-bottom: 32px; }
+.lesson-introduction h1 { margin-bottom: 12px; }
+.lesson-section { margin: 24px 0; padding: 24px; border: 1px solid #ccc; }
+.lesson-section p + p { margin-top: 12px; }
+.lesson-reading h3 { margin: 24px 0 12px; }
+.lesson-reading ol { padding-left: 24px; }
+.lesson-reading li + li { margin-top: 10px; }
+.lesson-concepts { padding-left: 24px; margin-top: 24px; }
+.lesson-concepts li { padding: 20px 0; border-top: 1px solid #ddd; }
+.lesson-concepts article { padding-left: 8px; }
+.lesson-table-scroll { overflow-x: auto; margin: 16px 0; }
+.lesson-reading table { border-collapse: collapse; width: 100%; }
+.lesson-reading caption { text-align: left; margin-bottom: 8px; }
+.lesson-reading th, .lesson-reading td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+@media (max-width: 600px) { .lesson-section { padding: 16px; } }

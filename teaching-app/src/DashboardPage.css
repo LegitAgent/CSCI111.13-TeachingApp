@@ -36,6 +36,9 @@
 .dashboard-page button:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
 .dashboard-page button:disabled { opacity: .6; cursor: wait; }
 .dashboard-notice button { margin-top: 12px; }
+.dashboard-link { display: inline-block; margin-top: 20px; padding: 10px 16px; border: 1px solid #111; color: #111; text-decoration: none; }
+.dashboard-link:hover { background: #111; color: #fff; }
+.dashboard-link:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
 
 @media (max-width: 600px) {
   .dashboard-page { padding: 24px 16px; }
