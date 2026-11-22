@@ -4,6 +4,9 @@ import '../index.css'
 export const metadata: Metadata = {
   title: 'PreCalPal',
   description: 'Learn precalculus with guided lessons and practice.',
+  icons: {
+    icon: { url: '/favicon.svg', type: 'image/svg+xml', sizes: 'any' },
+  },
 }
 
 export default function RootLayout({

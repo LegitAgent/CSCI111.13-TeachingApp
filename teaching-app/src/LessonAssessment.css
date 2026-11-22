@@ -1,0 +1,10 @@
+.assessment-questions { padding-left: 24px; margin: 24px 0; display: grid; gap: 24px; }
+.assessment-questions li { padding: 16px 0; border-top: 1px solid #ccc; overflow-wrap: anywhere; }
+.assessment-questions h3 { font-size: 18px; margin-bottom: 12px; }
+.assessment-questions input { display: block; width: 100%; margin-top: 12px; padding: 12px; border: 1px solid #777; color: #111; background: #fff; font: inherit; }
+.assessment-questions input:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+.assessment-result { padding: 20px; border: 1px solid #111; margin-bottom: 24px; }
+.assessment-result h3 { margin-bottom: 12px; }
+.assessment-error { margin-top: 16px; padding: 12px; border-left: 3px solid #a02020; }
+.assessment-back { display: inline-block; margin-left: 20px; }
+.lesson-assessment > button { margin-top: 16px; }

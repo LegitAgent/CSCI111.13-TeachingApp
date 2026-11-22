@@ -9,13 +9,15 @@ import { getDashboardPath } from './dashboardPath'
 import type { LessonData } from './lessonData'
 import TutorChat from './TutorChat'
 import TutorPopup from './TutorPopup'
+import LessonAssessment from './LessonAssessment'
 import './DashboardPage.css'
 import './LessonPage.css'
 
-export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false }: {
+export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false, assessmentOnly = false }: {
   dashboardSlug: string
   lessonId: string
   chatOnly?: boolean
+  assessmentOnly?: boolean
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
@@ -91,7 +93,7 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false }
   const dashboardPath = getDashboardPath(user)
   if (!dashboardPath) redirect('/signup')
   if (`/${dashboardSlug}` !== dashboardPath) {
-    redirect(`${dashboardPath}/lessons/${encodeURIComponent(lessonId)}${chatOnly ? '/chat' : ''}`)
+    redirect(`${dashboardPath}/lessons/${encodeURIComponent(lessonId)}${chatOnly ? '/chat' : assessmentOnly ? '/assessment' : ''}`)
   }
 
   const required = data?.lesson.concepts.filter((concept) => concept.required) ?? []
@@ -101,8 +103,8 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false }
   return (
     <main className={`dashboard-page lesson-page${chatOnly ? ' dedicated-tutor-page' : ''}`}>
       <nav className="lesson-navigation" aria-label="Lesson navigation">
-        {chatOnly && <Link href={lessonPath}>← Lesson overview</Link>}
-        <Link href={dashboardPath}>{chatOnly ? 'Dashboard' : '← Back to dashboard'}</Link>
+        {(chatOnly || assessmentOnly) && <Link href={lessonPath}>← Lesson overview</Link>}
+        <Link href={dashboardPath}>{chatOnly || assessmentOnly ? 'Dashboard' : '← Back to dashboard'}</Link>
       </nav>
       {loading ? <p role="status">Loading lesson…</p> : notFound ? (
         <section><h1>Lesson unavailable</h1><p>This lesson could not be found or is not published.</p></section>
@@ -121,17 +123,17 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false }
             ) : <p>{data.lesson.description}</p>}
           </header>
 
-          {!chatOnly && <section className="lesson-section" aria-labelledby="mastery-heading">
+          {!chatOnly && !assessmentOnly && <section className="lesson-section" aria-labelledby="mastery-heading">
             <h2 id="mastery-heading">Your learning goals</h2>
             <p>Demonstrate every required concept, then score at least {data.lesson.passingScorePercent}% on the problem-solving assessment.</p>
             <p><strong>{demonstrated} of {required.length} required concepts demonstrated</strong></p>
           </section>}
 
-          {!chatOnly && lessonId === 'rational-inequalities' && <RationalIntroduction />}
+          {!chatOnly && !assessmentOnly && lessonId === 'rational-inequalities' && <RationalIntroduction />}
 
-          {chatOnly ? <TutorChat key={lessonId} user={user} lessonId={lessonId} onProgress={(demonstratedConcepts) => {
+          {assessmentOnly ? <LessonAssessment key={lessonId} user={user} lessonId={lessonId} lessonPath={lessonPath} /> : chatOnly ? <TutorChat key={lessonId} user={user} lessonId={lessonId} assessmentHref={`${lessonPath}/assessment`} onProgress={(demonstratedConcepts) => {
             setData((current) => current ? { ...current, demonstratedConcepts } : current)
-          }} /> : <TutorPopup key={lessonId} user={user} lessonId={lessonId} onProgress={(demonstratedConcepts) => {
+          }} /> : <TutorPopup key={lessonId} user={user} lessonId={lessonId} assessmentHref={`${lessonPath}/assessment`} completed={required.length > 0 && demonstrated === required.length} onProgress={(demonstratedConcepts) => {
             setData((current) => current ? { ...current, demonstratedConcepts } : current)
           }} />}
         </>

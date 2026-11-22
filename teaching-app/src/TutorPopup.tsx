@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { User } from 'firebase/auth'
 import TutorChat from './TutorChat'
+import Link from 'next/link'
 
-export default function TutorPopup({ user, lessonId, onProgress }: {
+export default function TutorPopup({ user, lessonId, onProgress, assessmentHref, completed }: {
   user: User
   lessonId: string
   onProgress: (conceptIds: string[]) => void
+  assessmentHref: string
+  completed: boolean
 }) {
   const dialog = useRef<HTMLDialogElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -28,12 +31,13 @@ export default function TutorPopup({ user, lessonId, onProgress }: {
   return (
     <>
       <section className="lesson-section lesson-ready" aria-labelledby="lesson-ready-heading">
-        <h2 id="lesson-ready-heading">Are you ready to start?</h2>
-        <p>Let’s work through the ideas together. Your tutor will ask one question at a time, and you can ask for a hint whenever you need one.</p>
+        <h2 id="lesson-ready-heading">{completed ? 'Congratulations! You’re ready for the test.' : 'Are you ready to start?'}</h2>
+        <p>{completed ? 'You have demonstrated every required concept. Now put your understanding into practice.' : 'Let’s work through the ideas together. Your tutor will ask one question at a time, and you can ask for a hint whenever you need one.'}</p>
+        {completed && <Link className="dashboard-link" href={assessmentHref}>Continue to test →</Link>}
         <button className="lesson-start-chat" type="button" aria-haspopup="dialog" onClick={() => {
           setStarted(true)
           setOpen(true)
-        }}>{started ? 'Continue with my tutor' : 'Yes, let’s start'}</button>
+        }}>{completed ? 'Review tutor conversation' : started ? 'Continue with my tutor' : 'Yes, let’s start'}</button>
       </section>
 
       <dialog ref={dialog} className="tutor-popup" aria-labelledby="tutor-popup-title" onClose={() => setOpen(false)}>
@@ -41,7 +45,7 @@ export default function TutorPopup({ user, lessonId, onProgress }: {
           <h2 id="tutor-popup-title">Your PreCalPal tutor</h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close tutor chat">Close ✕</button>
         </header>
-        {started && <TutorChat user={user} lessonId={lessonId} onProgress={onProgress} />}
+        {started && <TutorChat user={user} lessonId={lessonId} onProgress={onProgress} assessmentHref={assessmentHref} />}
       </dialog>
     </>
   )

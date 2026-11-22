@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import type { User } from 'firebase/auth'
 import type { ChatEvent, ChatState } from './chatData'
+import Link from 'next/link'
 import './TutorChat.css'
 
-export default function TutorChat({ user, lessonId, onProgress }: {
+export default function TutorChat({ user, lessonId, onProgress, assessmentHref }: {
   user: User
   lessonId: string
   onProgress: (conceptIds: string[]) => void
+  assessmentHref: string
 }) {
   const [state, setState] = useState<ChatState | null>(null)
   const [draft, setDraft] = useState('')
@@ -165,7 +167,11 @@ export default function TutorChat({ user, lessonId, onProgress }: {
                   <li className="tutor-message tutor-message-assistant"><strong>Tutor</strong><p>{streamingReply || 'Thinking…'}</p></li>
                 )}
               </ol>
-              {state.completed ? <p role="status" className="tutor-complete">All required concepts demonstrated. Your conceptual section is complete.</p> : (
+              {state.completed ? <div className="tutor-complete">
+                <h3>Congratulations!</h3>
+                <p role="status">You have demonstrated all required concepts. You’re ready for the problem-solving test.</p>
+                <Link className="dashboard-link" href={assessmentHref}>Continue to test →</Link>
+              </div> : (
                 <form className="tutor-form" onSubmit={handleSubmit}>
                   <label htmlFor="tutor-answer">Your answer</label>
                   <textarea id="tutor-answer" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={3000} rows={3} required disabled={answering} />

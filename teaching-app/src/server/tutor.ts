@@ -102,7 +102,7 @@ export async function saveTurn(context: TutorContext, requestId: string, answer:
   const demonstratedConcepts = passed
     ? [...new Set([...context.state.demonstratedConcepts, current.id])] : context.state.demonstratedConcepts
   const next = context.concepts.find((concept) => !demonstratedConcepts.includes(concept.id)) ?? null
-  const suffix = passed ? next ? `\n\n${next.starterQuestion}` : '\n\nYou have demonstrated every required concept. Your conceptual section is complete.' : ''
+  const suffix = passed ? next ? `\n\n${next.starterQuestion}` : '\n\nCongratulations! You have demonstrated every required concept. You’re ready for the problem-solving test.' : ''
   const content = reply.trim() + suffix
   const revision = context.state.revision + 1
   const userMessage: ChatMessage = { id: `${requestId}-user`, role: 'user', content: answer }
