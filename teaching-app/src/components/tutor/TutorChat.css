@@ -1,27 +1,82 @@
-.tutor-chat h2 { margin-bottom: 0; }
-.tutor-history-note { color: #555; font-size: 14px; }
-.tutor-messages { list-style: none; display: grid; gap: 16px; margin: 24px 0; max-height: 560px; overflow-y: auto; padding: 4px; }
-.tutor-messages:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
-.tutor-message { padding: 16px; border-left: 3px solid #222; background: #f4f4f4; overflow-wrap: anywhere; }
-.tutor-message-user { margin-left: 32px; background: #fff; border: 1px solid #ccc; }
-.tutor-message p { white-space: pre-wrap; margin-top: 8px; }
-.tutor-form { display: grid; gap: 10px; }
-.tutor-form label { font-weight: bold; }
-.tutor-form textarea { width: 100%; padding: 12px; border: 1px solid #777; border-radius: 0; font: inherit; resize: vertical; color: #111; background: #fff; }
-.tutor-form textarea:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
-.tutor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.tutor-actions span, .tutor-status { color: #555; font-size: 14px; }
-.tutor-error { border-left: 3px solid #a02020; padding: 12px; margin-top: 16px; }
-.tutor-reload { margin-top: 16px; }
-.tutor-complete { border: 1px solid #333; padding: 16px; }
-.tutor-audio-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.tutor-chat { display: flex; flex-direction: column; }
+.tutor-chat .dashboard-lesson-heading { gap: 12px; margin-bottom: 12px; }
+.tutor-chat h2 { font-size: 23px; margin-bottom: 0; }
+.tutor-chat .dashboard-status { max-width: 100%; white-space: normal; }
+.tutor-intro { color: var(--muted); font-size: 13px; }
+.tutor-history-note { color: var(--muted); font-size: 12px; }
+.tutor-voice-settings { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.tutor-voice-settings summary { width: fit-content; cursor: pointer; color: var(--purple-dark); }
+.tutor-audio-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--canvas); }
 .tutor-audio-controls label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.tutor-audio-controls input { width: 18px; height: 18px; accent-color: #111; }
-.tutor-audio-controls input:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
-.tutor-message .tutor-read-aloud { margin-top: 12px; padding: 6px 10px; font-size: 14px; }
-.tutor-audio-error { margin-top: 12px; font-size: 14px; }
+.tutor-audio-controls input { width: 16px; height: 16px; accent-color: var(--purple); }
+.tutor-audio-controls button { padding: 5px 12px; font-size: 11px; }
+.tutor-messages { list-style: none; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; margin: 20px -8px; max-height: 510px; min-height: 200px; overflow-y: auto; overscroll-behavior: contain; padding: 10px 12px; scrollbar-width: thin; scrollbar-color: #cdc0df transparent; }
+.tutor-message { flex-shrink: 0; max-width: 87%; padding: 17px 20px; border: 1px solid var(--line); border-radius: 20px 20px 20px 5px; background: #f5f3f8; overflow-wrap: anywhere; }
+.tutor-message > strong { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; color: var(--purple-dark); }
+.tutor-message-assistant > strong::before { content: ''; display: inline-block; width: 22px; height: 22px; background: url('/favicon.svg') center / contain no-repeat; }
+.tutor-message-user { margin-left: auto; border-color: var(--purple); color: white; background: var(--purple); border-radius: 20px 20px 5px 20px; }
+.tutor-message-user > strong { color: #f1eafa; }
+.tutor-message p { white-space: pre-wrap; margin-top: 8px; font-size: 14px; line-height: 1.75; }
+.tutor-message .tutor-read-aloud { margin-top: 10px; padding: 3px 0; border: none; border-radius: 4px; background: transparent; color: var(--purple-dark); font-size: 10px; font-weight: 550; }
+.tutor-message .tutor-read-aloud:hover:not(:disabled) { background: transparent; text-decoration: underline; }
+.tutor-form { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.tutor-form textarea { width: 100%; padding: 15px 18px; border: 1.5px solid #d6cbe2; border-radius: 20px; font: inherit; font-size: 14px; resize: vertical; min-height: 82px; max-height: 220px; color: var(--ink); background: white; }
+.tutor-form textarea::placeholder { color: #857c90; }
+.tutor-form textarea:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-soft); }
+.tutor-form textarea[readonly] { background: var(--canvas); }
+.tutor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tutor-actions > span { color: var(--muted); font-size: 10px; line-height: 1.6; }
+.tutor-actions > span > span { font-size: 9px; }
+.tutor-actions > button { background: var(--purple); color: white; border-color: var(--purple); padding: 10px 20px; display: flex; align-items: center; gap: 16px; }
+.tutor-actions > button:hover:not(:disabled) { background: var(--purple-dark); }
+.tutor-actions > button span { font-size: 19px; line-height: 1; }
+.tutor-status { color: var(--muted); font-size: 11px; }
+.tutor-status:empty { display: none; }
+.tutor-error { border-left: 3px solid var(--error); padding: 12px 16px; margin-top: 16px; border-radius: 6px; background: #fff1f3; color: var(--error); font-size: 13px; }
+.tutor-chat .tutor-reload { align-self: flex-start; margin-top: 16px; padding: 3px 0; border: none; border-radius: 3px; background: transparent; font-size: 11px; color: var(--muted); font-weight: 400; }
+.tutor-chat .tutor-reload:hover:not(:disabled) { background: transparent; color: var(--purple); }
+.tutor-complete { border: 1px solid #c6e4d6; border-radius: 20px; padding: 24px; background: linear-gradient(120deg, var(--mint-soft), var(--purple-soft)); }
+.tutor-complete h3 { color: var(--purple-dark); margin-bottom: 10px; }
+.tutor-complete p { font-size: 14px; }
+.tutor-audio-error { margin-top: 8px; font-size: 12px; color: var(--error); }
 .tutor-microphone-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.tutor-microphone-controls p { flex: 1; min-width: 180px; color: #555; font-size: 14px; }
-.tutor-microphone-controls button[aria-pressed="true"] { background: #111; color: #fff; }
-.tutor-form textarea[readonly] { background: #f4f4f4; }
-@media (max-width: 600px) { .tutor-message-user { margin-left: 12px; } }
+.tutor-microphone-controls p { flex: 1; min-width: 130px; color: var(--muted); font-size: 11px; }
+.tutor-microphone-controls button { padding: 5px 10px; font-size: 11px; }
+.tutor-microphone-controls button[aria-pressed='true'] { background: var(--purple); color: white; }
+.tutor-popup .tutor-messages { max-height: 38dvh; }
+@media (min-width: 761px) and (min-height: 800px) {
+  .dedicated-tutor-page { height: calc(100dvh - 92px); display: flex; flex-direction: column; padding-top: 22px; padding-bottom: 22px; }
+  .dedicated-tutor-page .lesson-navigation { margin-bottom: 16px; }
+  .dedicated-tutor-page .lesson-introduction { margin-bottom: 20px; }
+  .dedicated-tutor-page .lesson-introduction h1 { font-size: 28px; margin-bottom: 6px; }
+  .dedicated-tutor-page .lesson-introduction .eyebrow { margin-bottom: 7px; }
+  .dedicated-tutor-page .learning-layout { flex: 1; min-height: 0; }
+  .dedicated-tutor-page .learning-content { min-height: 0; height: 100%; }
+  .dedicated-tutor-page .tutor-chat { height: 100%; min-height: 0; padding: 22px 26px; }
+  .dedicated-tutor-page .tutor-messages { flex: 1; min-height: 100px; max-height: none; }
+  .dedicated-tutor-page .tutor-form, .dedicated-tutor-page .tutor-complete { flex-shrink: 0; }
+}
+@media (max-width: 760px) {
+  .tutor-chat h2 { font-size: 20px; }
+  .tutor-message { max-width: 94%; padding: 14px 16px; }
+  .tutor-message p { font-size: 14px; }
+  .tutor-messages { max-height: 52dvh; min-height: 220px; }
+  .tutor-actions > span { font-size: 9px; }
+  .tutor-actions > button { padding: 9px 16px; }
+  .dedicated-tutor-page { height: calc(100dvh - 78px); padding: 16px 12px; display: flex; flex-direction: column; }
+  .dedicated-tutor-page .lesson-navigation { margin-bottom: 12px; font-size: 11px; }
+  .dedicated-tutor-page .lesson-introduction { margin-bottom: 16px; }
+  .dedicated-tutor-page .lesson-introduction .eyebrow { display: none; }
+  .dedicated-tutor-page .lesson-introduction h1 { font-size: 21px; margin-bottom: 4px; }
+  .dedicated-tutor-page .tutor-progress { font-size: 10px; }
+  .dedicated-tutor-page .learning-layout { display: flex; flex-direction: column; align-items: stretch; gap: 16px; min-height: 0; flex: 1; }
+  .dedicated-tutor-page .learning-content { flex: 1; min-height: 0; display: flex; }
+  .dedicated-tutor-page .tutor-chat { height: 100%; min-height: 0; flex: 1; padding: 18px 16px; overflow: auto; }
+  .dedicated-tutor-page .tutor-chat h2 { font-size: 18px; }
+  .dedicated-tutor-page .tutor-intro { display: none; }
+  .dedicated-tutor-page .tutor-messages { flex: 1; min-height: 80px; max-height: none; margin-top: 14px; margin-bottom: 14px; }
+  .dedicated-tutor-page .tutor-form, .dedicated-tutor-page .tutor-complete { flex-shrink: 0; }
+  .dedicated-tutor-page .tutor-form { gap: 8px; padding-top: 12px; }
+  .dedicated-tutor-page .tutor-form textarea { min-height: 66px; max-height: 120px; padding: 12px 14px; }
+  .dedicated-tutor-page .tutor-reload { margin-top: 10px; }
+}

@@ -36,10 +36,17 @@ export function useTutorDictation(active: boolean, onTranscript: (text: string) 
   const [listening, setListening] = useState(false)
   const [error, setError] = useState('')
   const recognition = useRef<Recognition | null>(null)
+  const keepListening = useRef(false)
+  const restartTimer = useRef<number | null>(null)
   const transcriptCallback = useRef(onTranscript)
   useEffect(() => { transcriptCallback.current = onTranscript }, [onTranscript])
 
   const abort = useCallback(() => {
+    keepListening.current = false
+    if (restartTimer.current !== null) {
+      window.clearTimeout(restartTimer.current)
+      restartTimer.current = null
+    }
     const current = recognition.current
     recognition.current = null
     if (current) {
@@ -52,57 +59,82 @@ export function useTutorDictation(active: boolean, onTranscript: (text: string) 
   }, [])
 
   const stop = useCallback(() => {
+    keepListening.current = false
+    if (restartTimer.current !== null) {
+      window.clearTimeout(restartTimer.current)
+      restartTimer.current = null
+    }
     // stop() allows the final result to arrive; abort() is for closing the chat.
-    try { recognition.current?.stop() } catch { abort() }
+    if (!recognition.current) setListening(false)
+    else try { recognition.current.stop() } catch { abort() }
   }, [abort])
 
   const start = useCallback((existingDraft: string) => {
     const Constructor = recognitionConstructor()
-    if (!active || !Constructor || recognition.current || existingDraft.length >= 3000) return
+    if (!active || !Constructor || recognition.current || keepListening.current || existingDraft.length >= 3000) return
     if (!window.isSecureContext) {
       setError('Microphone input requires HTTPS or localhost. You can still type your answer.')
       return
     }
     setError('')
-    const current = new Constructor()
-    current.lang = 'en-US'
-    current.continuous = false
-    current.interimResults = true
-    current.maxAlternatives = 1
-    recognition.current = current
-    current.onresult = (event) => {
-      if (recognition.current !== current) return
-      // Results contain the whole session, including revised interim text.
-      // Rebuild from the original draft so repeated events never duplicate words.
-      const spoken = Array.from(event.results, (result) => result[0]?.transcript ?? '').join(' ').trim()
-      const text = [existingDraft.trimEnd(), spoken].filter(Boolean).join(' ')
-      transcriptCallback.current(text.slice(0, 3000))
-      if (text.length >= 3000) current.stop()
-    }
-    current.onend = () => {
-      if (recognition.current !== current) return
-      recognition.current = null
-      setListening(false)
-    }
-    current.onerror = (event) => {
-      if (recognition.current !== current) return
-      const messages: Record<string, string> = {
-        'not-allowed': 'Microphone permission was denied. Allow microphone access in your browser’s site settings, then try again.',
-        'service-not-allowed': 'Speech recognition is blocked by your browser. You can type your answer instead.',
-        'audio-capture': 'No working microphone was found. Check your microphone connection and system settings.',
-        'no-speech': 'No speech was detected. Try the microphone again and speak clearly.',
-        network: 'The speech recognition service could not connect. Check your connection or type your answer.',
-        'language-not-supported': 'English dictation is unavailable in this browser. You can type your answer instead.',
-      }
-      if (event.error !== 'aborted') setError(messages[event.error] ?? 'Could not transcribe your speech. Try again or type your answer.')
-      abort()
-    }
+    keepListening.current = true
     setListening(true)
-    try { current.start() } catch {
-      abort()
-      setError('The microphone could not start. Check your browser permissions and try again.')
+    // Each browser session starts from the last visible transcript, including pauses.
+    let latestDraft = existingDraft
+    function beginSession() {
+      if (!keepListening.current || !Constructor) return
+      const prefix = latestDraft
+      let restartDelay = 300
+      const current = new Constructor()
+      current.lang = 'en-US'
+      current.continuous = true
+      current.interimResults = true
+      current.maxAlternatives = 1
+      recognition.current = current
+      current.onresult = (event) => {
+        if (recognition.current !== current) return
+        // Results contain the whole session, including revised interim text.
+        // Rebuild from the original draft so repeated events never duplicate words.
+        const spoken = Array.from(event.results, (result) => result[0]?.transcript ?? '').join(' ').trim()
+        const text = [prefix.trimEnd(), spoken].filter(Boolean).join(' ')
+        latestDraft = text.slice(0, 3000)
+        transcriptCallback.current(latestDraft)
+        if (text.length >= 3000) stop()
+      }
+      current.onend = () => {
+        if (recognition.current !== current) return
+        recognition.current = null
+        if (keepListening.current) {
+          restartTimer.current = window.setTimeout(() => {
+            restartTimer.current = null
+            beginSession()
+          }, restartDelay)
+        } else setListening(false)
+      }
+      current.onerror = (event) => {
+        if (recognition.current !== current) return
+        // Silence is a pause, not a request to turn the microphone off.
+        if (event.error === 'no-speech') {
+          restartDelay = 1000
+          return
+        }
+        const messages: Record<string, string> = {
+          'not-allowed': 'Microphone permission was denied. Allow microphone access in your browser’s site settings, then try again.',
+          'service-not-allowed': 'Speech recognition is blocked by your browser. You can type your answer instead.',
+          'audio-capture': 'No working microphone was found. Check your microphone connection and system settings.',
+          network: 'The speech recognition service could not connect. Check your connection or type your answer.',
+          'language-not-supported': 'English dictation is unavailable in this browser. You can type your answer instead.',
+        }
+        if (event.error !== 'aborted') setError(messages[event.error] ?? 'Could not transcribe your speech. Try again or type your answer.')
+        abort()
+      }
+      try { current.start() } catch {
+        abort()
+        setError('The microphone could not start. Check your browser permissions and try again.')
+      }
     }
-  }, [active, abort])
+    beginSession()
+  }, [active, abort, stop])
 
   useEffect(() => {
     if (!active) return

@@ -31,13 +31,16 @@ export default function TutorPopup({ user, lessonId, onProgress, assessmentHref,
   return (
     <>
       <section className="lesson-section lesson-ready" aria-labelledby="lesson-ready-heading">
-        <h2 id="lesson-ready-heading">{completed ? 'Congratulations! You’re ready for the test.' : 'Are you ready to start?'}</h2>
+        <span className="lesson-ready-spark" aria-hidden="true">✧</span>
+        <p className="eyebrow">YOUR PAL IS READY WHEN YOU ARE</p>
+        <h2 id="lesson-ready-heading">{completed ? 'You’ve got the ideas. Now put them to work.' : 'Let’s make sense of it, together.'}</h2>
         <p>{completed ? 'You have demonstrated every required concept. Now put your understanding into practice.' : 'Let’s work through the ideas together. Your tutor will ask one question at a time, and you can ask for a hint whenever you need one.'}</p>
         {completed && <Link className="dashboard-link" href={assessmentHref}>Continue to test →</Link>}
         <button className="lesson-start-chat" type="button" aria-haspopup="dialog" onClick={() => {
           setStarted(true)
           setOpen(true)
         }}>{completed ? 'Review tutor conversation' : started ? 'Continue with my tutor' : 'Yes, let’s start'}</button>
+        <Link className="lesson-full-chat" href={assessmentHref.replace(/\/assessment$/, '/chat')}>Open a full conversation <span aria-hidden="true">↗</span></Link>
       </section>
 
       <dialog ref={dialog} className="tutor-popup" aria-labelledby="tutor-popup-title" onClose={() => setOpen(false)}>

@@ -1,41 +1,54 @@
-.lesson-page nav { margin-bottom: 32px; }
-.lesson-navigation { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.lesson-page a { color: #111; text-underline-offset: 3px; }
-.lesson-page a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
-.lesson-introduction { margin-bottom: 32px; }
-.lesson-introduction h1 { margin-bottom: 12px; }
-.lesson-section { margin: 24px 0; padding: 24px; border: 1px solid #ccc; }
+.lesson-page { max-width: 1280px; }
+.lesson-navigation { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; font-size: 13px; }
+.lesson-navigation a { color: var(--muted); text-decoration: none; }
+.lesson-navigation a:hover { color: var(--purple); }
+.lesson-introduction { margin-bottom: 34px; }
+.lesson-introduction .eyebrow { margin-bottom: 10px; }
+.lesson-introduction h1 { font-size: clamp(28px, 3.4vw, 42px); margin-bottom: 12px; }
+.lesson-introduction > p:not(.eyebrow) { color: var(--muted); max-width: 75ch; }
+.lesson-section { margin: 0 0 24px; padding: 30px; border: 1px solid var(--purple-border); border-radius: var(--radius); background: white; box-shadow: var(--shadow); }
+.lesson-section h2 { font-size: 24px; margin-bottom: 16px; }
+.lesson-section > .eyebrow { margin-bottom: 10px; }
 .lesson-section p + p { margin-top: 12px; }
-.lesson-reading h3 { margin: 24px 0 12px; }
+.lesson-reading { line-height: 1.85; }
+.lesson-reading > p { max-width: 78ch; }
+.lesson-reading h3 { margin: 30px 0 12px; color: var(--purple-dark); font-size: 19px; }
 .lesson-reading ol { padding-left: 24px; }
-.lesson-reading li + li { margin-top: 10px; }
+.lesson-reading li { padding-left: 6px; }
+.lesson-reading li::marker { color: var(--purple); font-weight: 700; }
+.lesson-reading li + li { margin-top: 14px; }
+.lesson-reading strong { color: var(--purple-dark); font-weight: 650; }
+.lesson-reading > p:last-child { font-size: 12px; color: var(--muted); }
 .lesson-concepts { padding-left: 24px; margin-top: 24px; }
-.lesson-concepts li { padding: 20px 0; border-top: 1px solid #ddd; }
-.lesson-concepts article { padding-left: 8px; }
-.lesson-table-scroll { overflow-x: auto; margin: 16px 0; }
-.lesson-reading table { border-collapse: collapse; width: 100%; }
-.lesson-reading caption { text-align: left; margin-bottom: 8px; }
-.lesson-reading th, .lesson-reading td { border: 1px solid #ccc; padding: 10px; text-align: left; }
-@media (max-width: 600px) { .lesson-section { padding: 16px; } }
-
-.dedicated-tutor-page { max-width: 1100px; min-height: 100dvh; display: flex; flex-direction: column; padding-top: 24px; padding-bottom: 24px; }
-.dedicated-tutor-page .lesson-navigation { margin-bottom: 20px; }
-.dedicated-tutor-page .lesson-introduction { margin-bottom: 16px; }
-.dedicated-tutor-page .tutor-progress { font-size: 14px; margin-top: 8px; }
-.dedicated-tutor-page .tutor-chat { margin: 0; flex: 1; }
-.dedicated-tutor-page .tutor-messages { max-height: 50dvh; min-height: 200px; }
-.dedicated-tutor-page .tutor-form { position: sticky; bottom: 0; background: #fff; padding-top: 12px; }
-
-.lesson-ready { text-align: center; }
-.lesson-ready .lesson-start-chat { margin-top: 20px; background: #111; color: #fff; }
-.lesson-ready .lesson-start-chat:hover { background: #333; }
-.tutor-popup { position: fixed; inset: 0; margin: auto; width: min(920px, calc(100% - 32px)); max-height: 90dvh; overflow-y: auto; border: 1px solid #111; padding: 24px; color: #111; background: #fff; font: inherit; }
-.tutor-popup::backdrop { background: rgb(0 0 0 / 55%); }
-.tutor-popup-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
-.tutor-popup-header h2 { margin: 0; font-size: 22px; }
-.tutor-popup .tutor-chat { border: 0; margin: 0; padding: 0; }
-.tutor-popup .tutor-messages { max-height: 38dvh; }
-@media (max-width: 600px) {
-  .tutor-popup { width: calc(100% - 16px); padding: 16px; max-height: 95dvh; }
-  .tutor-popup-header h2 { font-size: 18px; }
+.lesson-concepts li { padding: 20px 0; border-top: 1px solid var(--line); }
+.lesson-table-scroll { overflow-x: auto; margin: 22px 0; border-radius: 14px; }
+.lesson-reading table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.lesson-reading caption { text-align: left; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+.lesson-reading th, .lesson-reading td { border: 1px solid var(--line); padding: 12px 16px; text-align: left; white-space: nowrap; }
+.lesson-reading th { color: var(--purple-dark); background: var(--purple-soft); font-weight: 650; }
+.lesson-reading tbody tr:nth-child(even) { background: #fcfbfe; }
+.dedicated-tutor-page .tutor-progress { font-size: 13px; }
+.dedicated-tutor-page .tutor-progress strong { color: var(--purple); }
+.dedicated-tutor-page .tutor-chat { margin: 0; }
+.lesson-ready { position: relative; text-align: center; padding: 36px; background: linear-gradient(120deg, var(--purple-soft), #f5fffb); }
+.lesson-ready-spark { display: block; color: var(--purple); font-size: 44px; line-height: 1; margin-bottom: 18px; }
+.lesson-ready h2 { margin-bottom: 14px; }
+.lesson-ready > p:not(.eyebrow) { max-width: 60ch; margin: 0 auto; color: var(--muted); font-size: 14px; }
+.lesson-ready .lesson-start-chat { display: inline-flex; margin-top: 24px; background: var(--purple); border-color: var(--purple); color: white; padding: 12px 24px; }
+.lesson-ready .lesson-start-chat:hover { background: var(--purple-dark); }
+.lesson-ready .dashboard-link { margin-right: 10px; }
+.lesson-full-chat { display: block; margin-top: 16px; font-size: 12px; color: var(--purple-dark); text-underline-offset: 4px; }
+.tutor-popup { position: fixed; inset: 0; margin: auto; width: min(1000px, calc(100% - 48px)); max-height: 94dvh; overflow-y: auto; border: 1px solid var(--purple-border); border-radius: 26px; padding: 26px; color: var(--ink); background: white; font: inherit; box-shadow: 0 30px 100px #21113740; }
+.tutor-popup::backdrop { background: #29203480; backdrop-filter: blur(5px); }
+.tutor-popup-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.tutor-popup-header h2 { margin: 0; color: var(--purple-dark); font-size: 20px; }
+.tutor-popup .tutor-chat { border: 0; margin: 0; padding: 0; box-shadow: none; }
+@media (max-width: 760px) {
+  .lesson-section { padding: 22px 18px; }
+  .lesson-introduction { margin-bottom: 26px; }
+  .lesson-section h2 { font-size: 21px; }
+  .tutor-popup { width: calc(100% - 16px); padding: 18px; max-height: 97dvh; border-radius: 20px; }
+  .tutor-popup-header { margin-bottom: 16px; }
+  .tutor-popup-header h2 { font-size: 17px; }
+  .lesson-reading { font-size: 15px; }
 }

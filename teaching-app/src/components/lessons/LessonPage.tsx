@@ -10,6 +10,8 @@ import type { LessonData } from '@/types/lesson'
 import TutorChat from '@/components/tutor/TutorChat'
 import TutorPopup from '@/components/tutor/TutorPopup'
 import LessonAssessment from '@/components/assessment/LessonAssessment'
+import AppHeader from '@/components/layout/AppHeader'
+import LearningSteps from '@/components/layout/LearningSteps'
 import '@/components/dashboard/DashboardPage.css'
 import '@/components/lessons/LessonPage.css'
 
@@ -88,7 +90,7 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false, 
     return () => controller.abort()
   }, [user, dashboardSlug, lessonId, attempt])
 
-  if (checkingAuth) return <main className="dashboard-page"><p role="status">Checking sign-in status…</p></main>
+  if (checkingAuth) return <main className="page-loading"><p role="status">Getting your lesson ready…</p></main>
   if (!user) redirect('/login')
   const dashboardPath = getDashboardPath(user)
   if (!dashboardPath) redirect('/signup')
@@ -101,10 +103,12 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false, 
   const lessonPath = `${dashboardPath}/lessons/${encodeURIComponent(lessonId)}`
 
   return (
-    <main className={`dashboard-page lesson-page${chatOnly ? ' dedicated-tutor-page' : ''}`}>
+    <>
+    <AppHeader user={user} />
+    <main id="main-content" className={`dashboard-page lesson-page${chatOnly ? ' dedicated-tutor-page' : ''}`}>
       <nav className="lesson-navigation" aria-label="Lesson navigation">
-        {(chatOnly || assessmentOnly) && <Link href={lessonPath}>← Lesson overview</Link>}
-        <Link href={dashboardPath}>{chatOnly || assessmentOnly ? 'Dashboard' : '← Back to dashboard'}</Link>
+        <Link href={dashboardPath}>← Your learning plan</Link>
+        {(chatOnly || assessmentOnly) && <Link href={lessonPath}>Lesson overview</Link>}
       </nav>
       {loading ? <p role="status">Loading lesson…</p> : notFound ? (
         <section><h1>Lesson unavailable</h1><p>This lesson could not be found or is not published.</p></section>
@@ -116,15 +120,20 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false, 
       ) : data ? (
         <>
           <header className="lesson-introduction">
-            <p className="dashboard-brand">PreCalPal · Inequalities</p>
+            <p className="eyebrow">INEQUALITIES <span aria-hidden="true"> / </span> {chatOnly ? 'TUTOR PRACTICE' : assessmentOnly ? 'ASSESSMENT' : 'READ & LEARN'}</p>
             <h1>{data.lesson.title}</h1>
             {chatOnly ? (
               <p className="tutor-progress"><strong>{demonstrated} / {required.length}</strong> required concepts demonstrated</p>
             ) : <p>{data.lesson.description}</p>}
           </header>
 
+          <div className="learning-layout">
+          <LearningSteps lessonPath={lessonPath} current={chatOnly ? 'tutor' : assessmentOnly ? 'assessment' : 'learn'} conceptsComplete={required.length > 0 && demonstrated === required.length} />
+          <div className="learning-content">
+
           {!chatOnly && !assessmentOnly && <section className="lesson-section" aria-labelledby="mastery-heading">
-            <h2 id="mastery-heading">Your learning goals</h2>
+            <p className="eyebrow">YOUR PATH TO MASTERY</p>
+            <h2 id="mastery-heading">Understand it. Explain it. Apply it.</h2>
             <p>Demonstrate every required concept, then score at least {data.lesson.passingScorePercent}% on the problem-solving assessment.</p>
             <p><strong>{demonstrated} of {required.length} required concepts demonstrated</strong></p>
           </section>}
@@ -136,9 +145,12 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false, 
           }} /> : <TutorPopup key={lessonId} user={user} lessonId={lessonId} assessmentHref={`${lessonPath}/assessment`} completed={required.length > 0 && demonstrated === required.length} onProgress={(demonstratedConcepts) => {
             setData((current) => current ? { ...current, demonstratedConcepts } : current)
           }} />}
+          </div>
+          </div>
         </>
       ) : null}
     </main>
+    </>
   )
 }
 

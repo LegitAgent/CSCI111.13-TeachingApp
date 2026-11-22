@@ -163,16 +163,17 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
   return (
     <section className="lesson-section tutor-chat" aria-labelledby="tutor-heading">
       <div className="dashboard-lesson-heading">
-        <h2 id="tutor-heading">Let’s think it through</h2>
+        <h2 id="tutor-heading">A little thinking, together.</h2>
         {state?.currentConcept && <span className="dashboard-status">{state.currentConcept.title}</span>}
       </div>
       {loading ? <p role="status">Loading your conversation…</p> : (
         <>
           {state && (
             <>
-              <p>Explain your reasoning in your own words. You can ask for a hint or clarification.</p>
-              <p className="tutor-history-note">Your recent conversation is shown below. Completed replies are saved automatically.</p>
+              <p className="tutor-intro">No need for perfect answers. Share your thinking, or ask your pal for help.</p>
               {speech.supported ? (
+                <details className="tutor-voice-settings">
+                <summary>Voice & audio options</summary>
                 <div className="tutor-audio-controls">
                   <label>
                     <input type="checkbox" checked={autoRead} onChange={(event) => {
@@ -183,12 +184,13 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                   </label>
                   <button type="button" disabled={!speech.speakingId} onClick={speech.stop}>Stop audio</button>
                 </div>
+                </details>
               ) : <p className="tutor-history-note">Read-aloud audio is unavailable in this browser.</p>}
               {speech.error && <p role="status" className="tutor-audio-error">{speech.error}</p>}
               <ol ref={messageList} className="tutor-messages" aria-label="Conversation with your tutor" tabIndex={0}>
                 {state.messages.map((message) => (
                   <li className={`tutor-message tutor-message-${message.role}`} key={message.id}>
-                    <strong>{message.role === 'user' ? 'You' : 'Tutor'}</strong>
+                    <strong>{message.role === 'user' ? 'You' : 'PreCalPal'}</strong>
                     <p>{message.content}</p>
                     {message.role === 'assistant' && speech.supported && (
                       <button className="tutor-read-aloud" type="button" aria-pressed={speech.speakingId === message.id}
@@ -203,7 +205,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                   <li className="tutor-message tutor-message-user"><strong>You</strong><p>{submitted}</p></li>
                 )}
                 {answering && (
-                  <li className="tutor-message tutor-message-assistant"><strong>Tutor</strong><p>{streamingReply || 'Thinking…'}</p></li>
+                  <li className="tutor-message tutor-message-assistant"><strong>PreCalPal</strong><p>{streamingReply || 'Thinking it through…'}</p></li>
                 )}
               </ol>
               {state.completed ? <div className="tutor-complete">
@@ -212,20 +214,25 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                 <Link className="dashboard-link" href={assessmentHref}>Continue to test →</Link>
               </div> : (
                 <form className="tutor-form" onSubmit={handleSubmit}>
-                  <label htmlFor="tutor-answer">Your answer</label>
-                  <textarea id="tutor-answer" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={3000} rows={3} required disabled={answering} readOnly={dictation.listening} aria-describedby="dictation-status" />
+                  <label htmlFor="tutor-answer" className="sr-only">Your message to PreCalPal</label>
+                  <textarea id="tutor-answer" placeholder="Share a thought, ask a question, or say ‘I’m not sure’…" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !answering && !dictation.listening) {
+                      event.preventDefault()
+                      event.currentTarget.form?.requestSubmit()
+                    }
+                  }} maxLength={3000} rows={2} required disabled={answering} readOnly={dictation.listening} aria-describedby="dictation-status tutor-keyboard-help" />
                   <div className="tutor-microphone-controls">
                     {dictation.supported ? <button type="button" aria-pressed={dictation.listening} disabled={answering || (!dictation.listening && draft.length >= 3000)}
                       onClick={() => {
                         if (dictation.listening) dictation.stop()
                         else { speech.stop(); dictation.start(draft) }
-                      }}>{dictation.listening ? 'Stop microphone' : 'Use microphone'}</button> : <p className="tutor-history-note">Voice input isn’t available in this browser. You can type your answer.</p>}
-                    <p id="dictation-status" role="status">{dictation.listening ? 'Listening… Speak your answer. Stop the microphone to review and edit it.' : 'You can review and edit your words before sending.'}</p>
+                      }}>{dictation.listening ? 'Stop microphone' : 'Press to talk'}</button> : <p className="tutor-history-note">Voice input isn’t available in this browser. You can type your answer.</p>}
+                    <p id="dictation-status" role="status">{dictation.listening ? 'Listening… Stop the microphone to review your words.' : 'Speak or type. Your words, your pace.'}</p>
                   </div>
                   {dictation.error && <p role="alert" className="tutor-audio-error">{dictation.error}</p>}
                   <div className="tutor-actions">
-                    <button type="submit" disabled={answering || dictation.listening || !draft.trim()}>{answering ? 'Tutor is replying…' : 'Send answer'}</button>
-                    <span>{draft.length} / 3000</span>
+                    <span id="tutor-keyboard-help">Enter to send · Shift + Enter for a new line<br /><span>{draft.length} / 3000 · Replies saved automatically</span></span>
+                    <button type="submit" disabled={answering || dictation.listening || !draft.trim()}>{answering ? 'Replying…' : 'Send'} <span aria-hidden="true">↑</span></button>
                   </div>
                   <span className="tutor-status" role="status">{answering ? 'Receiving your tutor’s response…' : ''}</span>
                 </form>
@@ -240,7 +247,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
             speech.stop()
             dictation.abort()
             setAttempt((value) => value + 1)
-          }}>Reload conversation</button>}
+          }}>↻ Reload conversation</button>}
         </>
       )}
     </section>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type SubmitEvent } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
   createUserWithEmailAndPassword,
@@ -21,6 +22,8 @@ import {
   isValidUsername,
 } from '@/lib/dashboardPath'
 import '@/components/auth/LoginPage.css'
+import Brand from '@/components/layout/Brand'
+import MathBackdrop from '@/components/layout/MathBackdrop'
 
 type AuthPageProps = {
   mode: 'login' | 'signup'
@@ -32,6 +35,7 @@ function AuthPage({ mode }: AuthPageProps) {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -139,7 +143,19 @@ function AuthPage({ mode }: AuthPageProps) {
   }
 
   return (
-    <main className="login-page">
+    <main className="login-page" id="main-content">
+      <aside className="auth-art" aria-label="Welcome to PreCalPal">
+        <Link href="/" className="auth-art-brand" aria-label="PreCalPal home"><Brand /></Link>
+        <MathBackdrop />
+        <div className="auth-art-center">
+          <Image src="/favicon.svg" alt="Your friendly PreCalPal mascot" width={260} height={260} preload />
+          <h2>A little curiosity.<br />A lot of possibility.</h2>
+          <p>Understand the why.<br />Build your confidence, one idea at a time.</p>
+        </div>
+        <span className="auth-art-note">YOUR PRECALCULUS LEARNING COMPANION</span>
+      </aside>
+      <section className="login-panel" aria-label={mode === 'signup' ? 'Create your account' : 'Sign in to your account'}>
+      <Link className="auth-back" href="/">← Back to home</Link>
       <div className="login-form">
         {isCheckingAuth ? (
           <p role="status">Checking sign-in status...</p>
@@ -176,7 +192,10 @@ function AuthPage({ mode }: AuthPageProps) {
           </>
         ) : (
           <>
-            <h1>{mode === 'signup' ? 'Sign up' : 'Login'}</h1>
+            <p className="eyebrow">LET’S MAKE MATH MAKE SENSE</p>
+            <h1>{mode === 'signup' ? 'Your next chapter starts here.' : 'Welcome back!'}</h1>
+            <p className="auth-wordmark">PreCalPal<span aria-hidden="true">.</span></p>
+            <p className="auth-subtitle">{mode === 'signup' ? 'Create an account and learn at your own pace.' : 'A fresh start, or right where you left off.'}</p>
             <form className="login-fields" onSubmit={handleSubmit}>
               {mode === 'signup' && (
                 <>
@@ -199,14 +218,17 @@ function AuthPage({ mode }: AuthPageProps) {
               <input id="email" name="email" type="email" autoComplete="email" required />
 
               <label htmlFor="password">Password</label>
+              <div className="password-field">
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 minLength={mode === 'signup' ? 6 : undefined}
                 required
               />
+              <button type="button" className="password-toggle" aria-controls="password" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)}>{showPassword ? 'Hide' : 'Show'}</button>
+              </div>
 
               {mode === 'signup' && (
                 <>
@@ -222,12 +244,13 @@ function AuthPage({ mode }: AuthPageProps) {
               )}
 
               <button type="submit" disabled={isSubmitting}>
-                {mode === 'signup' ? 'Create account' : 'Login'}
+                {isSubmitting ? 'One moment…' : mode === 'signup' ? 'Create account' : 'Log in'} <span aria-hidden="true">→</span>
               </button>
             </form>
 
-            <button type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
-              Continue with Google
+            <div className="auth-divider"><span>or</span></div>
+            <button className="google-button" type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
+              <span aria-hidden="true" className="google-letter">G</span> Continue with Google
             </button>
             <p>
               {mode === 'signup' ? 'Already have an account? ' : 'Need an account? '}
@@ -237,8 +260,10 @@ function AuthPage({ mode }: AuthPageProps) {
             </p>
           </>
         )}
-        {message && <p role="status">{message}</p>}
+        {message && <p className="auth-message" role="alert">{message}</p>}
       </div>
+      <p className="auth-footer">Small steps. Real understanding.</p>
+      </section>
     </main>
   )
 }
