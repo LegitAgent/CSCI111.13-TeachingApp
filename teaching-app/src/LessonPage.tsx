@@ -7,12 +7,15 @@ import { onAuthStateChanged, type User } from 'firebase/auth'
 import { auth } from '@app-firebase/config'
 import { getDashboardPath } from './dashboardPath'
 import type { LessonData } from './lessonData'
+import TutorChat from './TutorChat'
+import TutorPopup from './TutorPopup'
 import './DashboardPage.css'
 import './LessonPage.css'
 
-export default function LessonPage({ dashboardSlug, lessonId }: {
+export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false }: {
   dashboardSlug: string
   lessonId: string
+  chatOnly?: boolean
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
@@ -40,6 +43,22 @@ export default function LessonPage({ dashboardSlug, lessonId }: {
       try {
         const token = await currentUser.getIdToken()
         if (controller.signal.aborted) return
+        const startResponse = await fetch(`/api/lessons/${encodeURIComponent(lessonId)}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        if (startResponse.status === 404) {
+          setNotFound(true)
+          return
+        }
+        if (!startResponse.ok) {
+          const result = await startResponse.json()
+          throw new Error(typeof result.error === 'string' ? result.error : 'Could not save your lesson progress.')
+        }
+
         const response = await fetch(`/api/lessons/${encodeURIComponent(lessonId)}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
@@ -72,15 +91,19 @@ export default function LessonPage({ dashboardSlug, lessonId }: {
   const dashboardPath = getDashboardPath(user)
   if (!dashboardPath) redirect('/signup')
   if (`/${dashboardSlug}` !== dashboardPath) {
-    redirect(`${dashboardPath}/lessons/${encodeURIComponent(lessonId)}`)
+    redirect(`${dashboardPath}/lessons/${encodeURIComponent(lessonId)}${chatOnly ? '/chat' : ''}`)
   }
 
   const required = data?.lesson.concepts.filter((concept) => concept.required) ?? []
   const demonstrated = required.filter((concept) => data?.demonstratedConcepts.includes(concept.id)).length
+  const lessonPath = `${dashboardPath}/lessons/${encodeURIComponent(lessonId)}`
 
   return (
-    <main className="dashboard-page lesson-page">
-      <nav aria-label="Lesson navigation"><Link href={dashboardPath}>← Back to dashboard</Link></nav>
+    <main className={`dashboard-page lesson-page${chatOnly ? ' dedicated-tutor-page' : ''}`}>
+      <nav className="lesson-navigation" aria-label="Lesson navigation">
+        {chatOnly && <Link href={lessonPath}>← Lesson overview</Link>}
+        <Link href={dashboardPath}>{chatOnly ? 'Dashboard' : '← Back to dashboard'}</Link>
+      </nav>
       {loading ? <p role="status">Loading lesson…</p> : notFound ? (
         <section><h1>Lesson unavailable</h1><p>This lesson could not be found or is not published.</p></section>
       ) : error ? (
@@ -93,38 +116,24 @@ export default function LessonPage({ dashboardSlug, lessonId }: {
           <header className="lesson-introduction">
             <p className="dashboard-brand">PreCalPal · Inequalities</p>
             <h1>{data.lesson.title}</h1>
-            <p>{data.lesson.description}</p>
+            {chatOnly ? (
+              <p className="tutor-progress"><strong>{demonstrated} / {required.length}</strong> required concepts demonstrated</p>
+            ) : <p>{data.lesson.description}</p>}
           </header>
 
-          <section className="lesson-section" aria-labelledby="mastery-heading">
+          {!chatOnly && <section className="lesson-section" aria-labelledby="mastery-heading">
             <h2 id="mastery-heading">Your learning goals</h2>
             <p>Demonstrate every required concept, then score at least {data.lesson.passingScorePercent}% on the problem-solving assessment.</p>
             <p><strong>{demonstrated} of {required.length} required concepts demonstrated</strong></p>
-          </section>
+          </section>}
 
-          {lessonId === 'rational-inequalities' && <RationalIntroduction />}
+          {!chatOnly && lessonId === 'rational-inequalities' && <RationalIntroduction />}
 
-          <section className="lesson-section" aria-labelledby="concepts-heading">
-            <h2 id="concepts-heading">Think it through</h2>
-            <p>Use these questions to explain the reasoning behind each step.</p>
-            {data.lesson.concepts.length === 0 ? <p>Concept questions will be available soon.</p> : (
-              <ol className="lesson-concepts">
-                {data.lesson.concepts.map((concept) => (
-                  <li key={concept.id}>
-                    <article>
-                      <div className="dashboard-lesson-heading">
-                        <h3>{concept.title}</h3>
-                        <span className="dashboard-status">
-                          {data.demonstratedConcepts.includes(concept.id) ? 'Demonstrated' : concept.required ? 'Required' : 'Optional'}
-                        </span>
-                      </div>
-                      <p>{concept.starterQuestion}</p>
-                    </article>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+          {chatOnly ? <TutorChat key={lessonId} user={user} lessonId={lessonId} onProgress={(demonstratedConcepts) => {
+            setData((current) => current ? { ...current, demonstratedConcepts } : current)
+          }} /> : <TutorPopup key={lessonId} user={user} lessonId={lessonId} onProgress={(demonstratedConcepts) => {
+            setData((current) => current ? { ...current, demonstratedConcepts } : current)
+          }} />}
         </>
       ) : null}
     </main>

@@ -1,0 +1,17 @@
+.tutor-chat h2 { margin-bottom: 0; }
+.tutor-history-note { color: #555; font-size: 14px; }
+.tutor-messages { list-style: none; display: grid; gap: 16px; margin: 24px 0; max-height: 560px; overflow-y: auto; padding: 4px; }
+.tutor-messages:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+.tutor-message { padding: 16px; border-left: 3px solid #222; background: #f4f4f4; overflow-wrap: anywhere; }
+.tutor-message-user { margin-left: 32px; background: #fff; border: 1px solid #ccc; }
+.tutor-message p { white-space: pre-wrap; margin-top: 8px; }
+.tutor-form { display: grid; gap: 10px; }
+.tutor-form label { font-weight: bold; }
+.tutor-form textarea { width: 100%; padding: 12px; border: 1px solid #777; border-radius: 0; font: inherit; resize: vertical; color: #111; background: #fff; }
+.tutor-form textarea:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+.tutor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tutor-actions span, .tutor-status { color: #555; font-size: 14px; }
+.tutor-error { border-left: 3px solid #a02020; padding: 12px; margin-top: 16px; }
+.tutor-reload { margin-top: 16px; }
+.tutor-complete { border: 1px solid #333; padding: 16px; }
+@media (max-width: 600px) { .tutor-message-user { margin-left: 12px; } }

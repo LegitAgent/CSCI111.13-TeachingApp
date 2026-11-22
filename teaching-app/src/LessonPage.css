@@ -1,4 +1,5 @@
 .lesson-page nav { margin-bottom: 32px; }
+.lesson-navigation { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .lesson-page a { color: #111; text-underline-offset: 3px; }
 .lesson-page a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
 .lesson-introduction { margin-bottom: 32px; }
@@ -16,3 +17,25 @@
 .lesson-reading caption { text-align: left; margin-bottom: 8px; }
 .lesson-reading th, .lesson-reading td { border: 1px solid #ccc; padding: 10px; text-align: left; }
 @media (max-width: 600px) { .lesson-section { padding: 16px; } }
+
+.dedicated-tutor-page { max-width: 1100px; min-height: 100dvh; display: flex; flex-direction: column; padding-top: 24px; padding-bottom: 24px; }
+.dedicated-tutor-page .lesson-navigation { margin-bottom: 20px; }
+.dedicated-tutor-page .lesson-introduction { margin-bottom: 16px; }
+.dedicated-tutor-page .tutor-progress { font-size: 14px; margin-top: 8px; }
+.dedicated-tutor-page .tutor-chat { margin: 0; flex: 1; }
+.dedicated-tutor-page .tutor-messages { max-height: 50dvh; min-height: 200px; }
+.dedicated-tutor-page .tutor-form { position: sticky; bottom: 0; background: #fff; padding-top: 12px; }
+
+.lesson-ready { text-align: center; }
+.lesson-ready .lesson-start-chat { margin-top: 20px; background: #111; color: #fff; }
+.lesson-ready .lesson-start-chat:hover { background: #333; }
+.tutor-popup { position: fixed; inset: 0; margin: auto; width: min(920px, calc(100% - 32px)); max-height: 90dvh; overflow-y: auto; border: 1px solid #111; padding: 24px; color: #111; background: #fff; font: inherit; }
+.tutor-popup::backdrop { background: rgb(0 0 0 / 55%); }
+.tutor-popup-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
+.tutor-popup-header h2 { margin: 0; font-size: 22px; }
+.tutor-popup .tutor-chat { border: 0; margin: 0; padding: 0; }
+.tutor-popup .tutor-messages { max-height: 38dvh; }
+@media (max-width: 600px) {
+  .tutor-popup { width: calc(100% - 16px); padding: 16px; max-height: 95dvh; }
+  .tutor-popup-header h2 { font-size: 18px; }
+}

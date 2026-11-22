@@ -6,6 +6,71 @@ export const dynamic = 'force-dynamic'
 
 const headers = { 'Cache-Control': 'private, no-store' }
 
+export async function POST(request: Request, { params }: { params: Promise<{ lessonId: string }> }) {
+  const token = request.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1]
+  if (!token) {
+    return Response.json({ error: 'Sign in to start this lesson.' }, { status: 401, headers })
+  }
+
+  try {
+    const adminAuth = getAdminAuth()
+    let uid: string
+    try {
+      uid = (await adminAuth.verifyIdToken(token)).uid
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : ''
+      if (typeof code === 'string' && [
+        'auth/argument-error', 'auth/invalid-id-token', 'auth/id-token-expired',
+        'auth/id-token-revoked', 'auth/user-disabled', 'auth/user-not-found',
+      ].includes(code)) {
+        return Response.json({ error: 'Your session is invalid or expired. Sign in again.' }, { status: 401, headers })
+      }
+      throw error
+    }
+
+    const { lessonId } = await params
+    if (!lessonId || lessonId.includes('/') || lessonId === '.' || lessonId === '..') {
+      return Response.json({ error: 'Lesson not found.' }, { status: 404, headers })
+    }
+
+    const db = getAdminFirestore()
+    const lessonRef = db.collection('lessons').doc(lessonId)
+    const progressRef = db.collection('users').doc(uid).collection('progress').doc(lessonId)
+
+    // The transaction makes simultaneous opens safe and preserves earned progress.
+    const result = await db.runTransaction(async (transaction) => {
+      const lessonSnapshot = await transaction.get(lessonRef)
+      const lesson = lessonSnapshot.data()
+      if (!lessonSnapshot.exists || lesson?.published !== true) return null
+
+      const progressSnapshot = await transaction.get(progressRef)
+      const now = new Date()
+      if (progressSnapshot.exists) {
+        transaction.update(progressRef, { lastOpenedAt: now })
+        return { created: false }
+      }
+
+      transaction.create(progressRef, {
+        stage: 'socratic',
+        lessonVersion: typeof lesson.version === 'number' && Number.isFinite(lesson.version) ? lesson.version : 1,
+        demonstratedConcepts: [],
+        bestScore: null,
+        mastered: false,
+        startedAt: now,
+        lastOpenedAt: now,
+      })
+      return { created: true }
+    })
+
+    if (!result) {
+      return Response.json({ error: 'Lesson not found.' }, { status: 404, headers })
+    }
+    return Response.json(result, { headers })
+  } catch {
+    return Response.json({ error: 'Could not save your lesson progress. Please try again.' }, { status: 500, headers })
+  }
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ lessonId: string }> }) {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1]
   if (!token) {
