@@ -1,78 +1,54 @@
-# React + TypeScript + Vite
+# PreCalPal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A precalculus learning app built with Next.js App Router, React, TypeScript, Firebase Authentication, and Cloud Firestore. The Socratic tutor uses the Meta Model API; read-aloud audio uses the browser Web Speech API.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Run these commands from `teaching-app`:
 
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Open http://localhost:3000.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Checks
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+pnpm lint
+pnpm build
+node --test tests/*.test.mjs
 ```
+
+Use `pnpm start` to run a production build locally after `pnpm build`.
+
+## Environment
+
+Set local server credentials in `.env.local`:
+
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+- `MUSE_CODE_API`
+- `MUSE_MODEL` (optional; defaults to `muse-spark-1.3`)
+
+The Admin SDK also supports Application Default Credentials on Firebase App Hosting. Keep private credentials out of source control and browser code.
+
+## Source structure
+
+- `src/app`: routes, layouts, and API endpoints
+- `src/components`: auth, dashboard, lessons, assessment, and tutor UI with associated CSS
+- `src/hooks`: browser speech hook
+- `src/lib`: shared utilities
+- `src/server`: server-only tutor, model API, and assessment logic
+- `src/styles`: global styles
+- `src/types`: shared request and response types
+- `firebase`: browser and Admin SDK initialization
+- `tests`: server logic and grading tests
+
+## Deployment
+
+Deploy the full Next.js app to Firebase App Hosting. It needs a server runtime for authenticated APIs, AI streaming, and grading. Configure the backend with `teaching-app` as its application root.
+
+`firebase.json` configures Firestore and authentication. App Hosting deployment is configured separately.

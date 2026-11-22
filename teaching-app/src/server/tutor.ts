@@ -3,7 +3,12 @@ import { getAdminAuth, getAdminFirestore } from '@app-firebase/admin'
 import type { ChatMessage, ChatState } from '@/types/chat'
 
 export class TutorError extends Error {
-  constructor(public status: number, message: string) { super(message) }
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
 }
 
 export async function authenticate(request: Request) {
