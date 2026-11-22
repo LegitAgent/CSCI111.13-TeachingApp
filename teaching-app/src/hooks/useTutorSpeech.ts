@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import type { ChatMessage } from './chatData'
+import type { ChatMessage } from '@/types/chat'
 
 const subscribe = () => () => {}
 const supportedInBrowser = () => typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window

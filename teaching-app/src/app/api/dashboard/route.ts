@@ -1,5 +1,5 @@
 import { getAdminAuth, getAdminFirestore } from '@app-firebase/admin'
-import type { DashboardData, DashboardLesson } from '@/dashboardData'
+import type { DashboardData, DashboardLesson } from '@/types/dashboard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

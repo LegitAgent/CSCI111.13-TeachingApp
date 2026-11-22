@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { redirect, useRouter } from 'next/navigation'
 import { auth } from '@app-firebase/config'
-import { getDashboardPath, getUsername } from './dashboardPath'
-import type { DashboardData } from './dashboardData'
-import './LoginPage.css'
-import './DashboardPage.css'
+import { getDashboardPath, getUsername } from '@/lib/dashboardPath'
+import type { DashboardData } from '@/types/dashboard'
+import '@/components/auth/LoginPage.css'
+import '@/components/dashboard/DashboardPage.css'
 
 function DashboardPage({ dashboardSlug }: { dashboardSlug: string }) {
   const router = useRouter()

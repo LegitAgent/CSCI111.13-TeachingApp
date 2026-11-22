@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { User } from 'firebase/auth'
-import TutorChat from './TutorChat'
+import TutorChat from '@/components/tutor/TutorChat'
 import Link from 'next/link'
 
 export default function TutorPopup({ user, lessonId, onProgress, assessmentHref, completed }: {

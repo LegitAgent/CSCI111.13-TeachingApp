@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import DashboardPage from '../../DashboardPage'
+import DashboardPage from '@/components/dashboard/DashboardPage'
 
 export default async function Page({
   params,

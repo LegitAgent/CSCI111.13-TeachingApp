@@ -1,6 +1,6 @@
 import 'server-only'
 import { getAdminAuth, getAdminFirestore } from '@app-firebase/admin'
-import type { ChatMessage, ChatState } from '@/chatData'
+import type { ChatMessage, ChatState } from '@/types/chat'
 
 export class TutorError extends Error {
   constructor(public status: number, message: string) { super(message) }

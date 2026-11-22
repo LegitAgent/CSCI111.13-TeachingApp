@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import LessonPage from '../../../../../LessonPage'
+import LessonPage from '@/components/lessons/LessonPage'
 
 export default async function Page({ params }: {
   params: Promise<{ dashboardSlug: string; lessonId: string }>

@@ -19,8 +19,8 @@ import {
   getDashboardPathFor,
   getUsername,
   isValidUsername,
-} from './dashboardPath'
-import './LoginPage.css'
+} from '@/lib/dashboardPath'
+import '@/components/auth/LoginPage.css'
 
 type AuthPageProps = {
   mode: 'login' | 'signup'

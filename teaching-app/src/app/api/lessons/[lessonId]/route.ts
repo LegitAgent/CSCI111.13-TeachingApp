@@ -1,5 +1,5 @@
 import { getAdminAuth, getAdminFirestore } from '@app-firebase/admin'
-import type { LessonConcept, LessonData } from '@/lessonData'
+import type { LessonConcept, LessonData } from '@/types/lesson'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

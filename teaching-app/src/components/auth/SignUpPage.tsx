@@ -1,4 +1,4 @@
-import AuthPage from './AuthPage'
+import AuthPage from '@/components/auth/AuthPage'
 
 function SignUpPage() {
   return <AuthPage mode="signup" />

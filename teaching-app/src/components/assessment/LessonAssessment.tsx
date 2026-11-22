@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import Link from 'next/link'
 import type { User } from 'firebase/auth'
-import type { AssessmentAttempt, AssessmentData } from './assessmentData'
-import './LessonAssessment.css'
+import type { AssessmentAttempt, AssessmentData } from '@/types/assessment'
+import '@/components/assessment/LessonAssessment.css'
 
 export default function LessonAssessment({ user, lessonId, lessonPath }: {
   user: User; lessonId: string; lessonPath: string

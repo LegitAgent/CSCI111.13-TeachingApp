@@ -3,7 +3,7 @@ import { randomInt } from 'node:crypto'
 import { getAdminFirestore } from '@app-firebase/admin'
 import { TutorError } from './tutor'
 import { parseIntervals, readAnswerKey, sameIntervals } from './intervals'
-import type { AssessmentAttempt, AssessmentData, QuestionResult } from '@/assessmentData'
+import type { AssessmentAttempt, AssessmentData, QuestionResult } from '@/types/assessment'
 import type { DocumentSnapshot } from 'firebase-admin/firestore'
 
 export async function assessmentContext(uid: string, lessonId: string) {

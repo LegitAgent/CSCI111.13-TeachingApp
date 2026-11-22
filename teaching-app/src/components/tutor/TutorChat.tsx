@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import type { User } from 'firebase/auth'
-import type { ChatEvent, ChatState } from './chatData'
+import type { ChatEvent, ChatState } from '@/types/chat'
 import Link from 'next/link'
-import { useTutorSpeech } from './useTutorSpeech'
-import './TutorChat.css'
+import { useTutorSpeech } from '@/hooks/useTutorSpeech'
+import '@/components/tutor/TutorChat.css'
 
 export default function TutorChat({ user, lessonId, onProgress, assessmentHref, active = true }: {
   user: User

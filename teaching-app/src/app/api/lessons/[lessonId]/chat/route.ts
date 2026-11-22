@@ -1,6 +1,6 @@
 import { authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError } from '@/server/tutor'
 import { parseEvaluation, readReplyPrefix, streamMuse, type ModelMessage } from '@/server/muse'
-import type { ChatEvent } from '@/chatData'
+import type { ChatEvent } from '@/types/chat'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
