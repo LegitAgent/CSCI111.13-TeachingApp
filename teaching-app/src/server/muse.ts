@@ -1,10 +1,24 @@
 import 'server-only'
 
 export type ModelMessage = { role: 'developer' | 'assistant' | 'user'; content: string }
-export type Evaluation = { passed: boolean; evidence: string }
+
+function responseError(code: string) {
+  return Object.assign(new Error('Muse returned an incomplete or invalid response.'), { code })
+}
+
+function checkFinishReason(reason: unknown) {
+  if (reason === 'stop') return
+  if (reason === 'length') throw responseError('muse-token-limit')
+  if (reason === 'content_filter') throw responseError('muse-content-filter')
+  throw responseError('muse-unexpected-finish')
+}
 
 // Both the provider stream and our browser stream use newline-delimited frames.
-export async function* readProviderText(body: ReadableStream<Uint8Array>) {
+export async function* readProviderText(body: ReadableStream<Uint8Array>, contentType = 'text/event-stream') {
+  if (!contentType.includes('text/event-stream')) {
+    await body.cancel()
+    throw responseError('muse-unexpected-stream-type')
+  }
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -14,11 +28,14 @@ export async function* readProviderText(body: ReadableStream<Uint8Array>) {
     if (!line.startsWith('data:')) return null
     const payload = line.slice(5).trim()
     if (!payload || payload === '[DONE]') return null
-    const chunk = JSON.parse(payload)
-    if (chunk.error) throw new Error('The AI service could not complete its response.')
+    let chunk
+    try { chunk = JSON.parse(payload) } catch { throw responseError('muse-invalid-stream-frame') }
+    if (!chunk || chunk.error) throw responseError('muse-stream-error')
     const choice = chunk.choices?.[0]
-    if (choice?.finish_reason === 'stop') finished = true
-    else if (choice?.finish_reason) throw new Error('The AI response was incomplete. Please try again.')
+    if (choice?.finish_reason) {
+      checkFinishReason(choice.finish_reason)
+      finished = true
+    }
     return typeof choice?.delta?.content === 'string' ? choice.delta.content : null
   }
 
@@ -31,33 +48,20 @@ export async function* readProviderText(body: ReadableStream<Uint8Array>) {
         const text = parseLine(buffer.slice(0, newline).replace(/\r$/, ''))
         buffer = buffer.slice(newline + 1)
         if (text) yield text
+        if (finished) return
       }
       if (done) break
-      if (buffer.length > 64_000) throw new Error('The AI response was invalid.')
+      if (buffer.length > 64_000) throw responseError('muse-stream-frame-too-large')
     }
     if (buffer.trim()) {
       const text = parseLine(buffer.trim())
       if (text) yield text
     }
-    if (!finished) throw new Error('The AI connection ended early. Please try again.')
+    if (!finished) throw responseError('muse-stream-closed-early')
   } finally {
     await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
-}
-
-export function parseEvaluation(line: string, answer: string): Evaluation {
-  let value: unknown
-  try { value = JSON.parse(line.trim()) } catch { throw new Error('The tutor could not evaluate this reply. Please try again.') }
-  if (!value || typeof value !== 'object' || !('passed' in value) || typeof value.passed !== 'boolean'
-    || !('evidence' in value) || typeof value.evidence !== 'string' || value.evidence.length > 300) {
-    throw new Error('The tutor returned an invalid evaluation. Please try again.')
-  }
-  // A passing verdict must cite a literal excerpt from this student's answer.
-  if (value.passed && (!value.evidence.trim() || !answer.toLowerCase().includes(value.evidence.trim().toLowerCase()))) {
-    throw new Error('The tutor could not support its evaluation. Please try again.')
-  }
-  return { passed: value.passed, evidence: value.evidence }
 }
 
 // Decode just the reply string while the schema-constrained JSON is still arriving.
@@ -76,43 +80,34 @@ export function readReplyPrefix(json: string) {
     if (escaped === 'u') {
       const hex = json.slice(index + 1, index + 5)
       if (hex.length < 4) break
-      if (!/^[0-9a-f]{4}$/i.test(hex)) throw new Error('The tutor returned an invalid response.')
+      if (!/^[0-9a-f]{4}$/i.test(hex)) throw responseError('muse-invalid-reply-escape')
       text += String.fromCharCode(parseInt(hex, 16))
       index += 4
     } else if (escaped in escapes) text += escapes[escaped]
-    else throw new Error('The tutor returned an invalid response.')
+    else throw responseError('muse-invalid-reply-escape')
   }
   return text
 }
 
-export async function streamMuse(messages: ModelMessage[], signal: AbortSignal) {
+async function requestMuse(messages: ModelMessage[], signal: AbortSignal, schema: object, stream: boolean) {
   const apiKey = process.env.MUSE_CODE_API
   if (!apiKey) throw new Error('The tutor is not configured. Set MUSE_CODE_API on the server.')
 
   const response = await fetch('https://api.meta.ai/v1/chat/completions', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: stream ? 'text/event-stream' : 'application/json' },
     body: JSON.stringify({
       model: process.env.MUSE_MODEL || 'muse-spark-1.3',
       messages,
-      stream: true,
-      reasoning_effort: 'low',
-      max_completion_tokens: 1200,
+      stream,
+      reasoning_effort: stream ? 'minimal' : 'low',
+      max_completion_tokens: stream ? 2400 : 4000,
       response_format: {
         type: 'json_schema',
         json_schema: {
           name: 'socratic_reply',
           strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              reply: { type: 'string', description: 'Brief student-facing feedback, with one follow-up if not passed.' },
-              passed: { type: 'boolean' },
-              evidence: { type: 'string', description: 'A short literal excerpt from the newest answer supporting a pass; empty otherwise.' },
-            },
-            required: ['reply', 'passed', 'evidence'],
-            additionalProperties: false,
-          },
+          schema,
         },
       },
     }),
@@ -127,5 +122,21 @@ export async function streamMuse(messages: ModelMessage[], signal: AbortSignal) 
     if (response.status === 404) throw new Error('The configured Muse model is unavailable. Check MUSE_MODEL on the server.')
     throw new Error('The AI service is unavailable. Please try again.')
   }
-  return readProviderText(response.body)
+  return response
+}
+
+export async function streamMuse(messages: ModelMessage[], signal: AbortSignal, schema: object) {
+  const response = await requestMuse(messages, signal, schema, true)
+  return readProviderText(response.body!, response.headers.get('content-type') ?? '')
+}
+
+export async function completeMuse(messages: ModelMessage[], signal: AbortSignal, schema: object) {
+  const response = await requestMuse(messages, signal, schema, false)
+  let data
+  try { data = await response.json() } catch { throw responseError('muse-invalid-completion') }
+  const choice = data?.choices?.[0]
+  checkFinishReason(choice?.finish_reason)
+  const content = choice?.message?.content
+  if (typeof content !== 'string' || !content.trim()) throw responseError('muse-empty-completion')
+  return content
 }

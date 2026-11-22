@@ -5,6 +5,7 @@ import type { User } from 'firebase/auth'
 import type { ChatEvent, ChatState } from '@/types/chat'
 import Link from 'next/link'
 import { useTutorSpeech } from '@/hooks/useTutorSpeech'
+import { useTutorDictation } from '@/hooks/useTutorDictation'
 import '@/components/tutor/TutorChat.css'
 
 export default function TutorChat({ user, lessonId, onProgress, assessmentHref, active = true }: {
@@ -24,6 +25,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
   const [submitted, setSubmitted] = useState('')
   const [autoRead, setAutoRead] = useState(false)
   const speech = useTutorSpeech(active)
+  const dictation = useTutorDictation(active, setDraft)
   const { speak, supported } = speech
   const lastRead = useRef('')
   const activeRequest = useRef<AbortController | null>(null)
@@ -34,13 +36,13 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
   const endpoint = `/api/lessons/${encodeURIComponent(lessonId)}/chat`
 
   useEffect(() => {
-    if (!autoRead || !active || !supported) return
+    if (!autoRead || !active || !supported || dictation.listening) return
     const latest = state?.messages.findLast((message) => message.role === 'assistant')
     if (latest && latest.id !== lastRead.current) {
       lastRead.current = latest.id
       speak(latest)
     }
-  }, [state?.messages, autoRead, active, supported, speak])
+  }, [state?.messages, autoRead, active, supported, speak, dictation.listening])
 
   useEffect(() => {
     if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight
@@ -74,7 +76,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!state || state.completed || answering || activeRequest.current || !draft.trim()) return
+    if (!state || state.completed || answering || dictation.listening || activeRequest.current || !draft.trim()) return
     const controller = new AbortController()
     activeRequest.current = controller
     speech.stop()
@@ -116,6 +118,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
           if (!line.trim()) return
           const event = JSON.parse(line) as ChatEvent
           if (event.type === 'delta') setStreamingReply((text) => text + event.text)
+          if (event.type === 'reset') setStreamingReply('')
           if (event.type === 'error') throw new Error(event.message)
           if (event.type === 'done') {
             completed = true
@@ -175,7 +178,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                     <input type="checkbox" checked={autoRead} onChange={(event) => {
                       setAutoRead(event.target.checked)
                       if (!event.target.checked) speech.stop()
-                    }} />
+                    }} disabled={dictation.listening} />
                     Read tutor replies aloud
                   </label>
                   <button type="button" disabled={!speech.speakingId} onClick={speech.stop}>Stop audio</button>
@@ -189,6 +192,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                     <p>{message.content}</p>
                     {message.role === 'assistant' && speech.supported && (
                       <button className="tutor-read-aloud" type="button" aria-pressed={speech.speakingId === message.id}
+                        disabled={dictation.listening}
                         onClick={() => speech.speakingId === message.id ? speech.stop() : speech.speak(message)}>
                         {speech.speakingId === message.id ? 'Stop reading' : 'Read aloud'}
                       </button>
@@ -209,9 +213,18 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
               </div> : (
                 <form className="tutor-form" onSubmit={handleSubmit}>
                   <label htmlFor="tutor-answer">Your answer</label>
-                  <textarea id="tutor-answer" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={3000} rows={3} required disabled={answering} />
+                  <textarea id="tutor-answer" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={3000} rows={3} required disabled={answering} readOnly={dictation.listening} aria-describedby="dictation-status" />
+                  <div className="tutor-microphone-controls">
+                    {dictation.supported ? <button type="button" aria-pressed={dictation.listening} disabled={answering || (!dictation.listening && draft.length >= 3000)}
+                      onClick={() => {
+                        if (dictation.listening) dictation.stop()
+                        else { speech.stop(); dictation.start(draft) }
+                      }}>{dictation.listening ? 'Stop microphone' : 'Use microphone'}</button> : <p className="tutor-history-note">Voice input isn’t available in this browser. You can type your answer.</p>}
+                    <p id="dictation-status" role="status">{dictation.listening ? 'Listening… Speak your answer. Stop the microphone to review and edit it.' : 'You can review and edit your words before sending.'}</p>
+                  </div>
+                  {dictation.error && <p role="alert" className="tutor-audio-error">{dictation.error}</p>}
                   <div className="tutor-actions">
-                    <button type="submit" disabled={answering || !draft.trim()}>{answering ? 'Tutor is replying…' : 'Send answer'}</button>
+                    <button type="submit" disabled={answering || dictation.listening || !draft.trim()}>{answering ? 'Tutor is replying…' : 'Send answer'}</button>
                     <span>{draft.length} / 3000</span>
                   </div>
                   <span className="tutor-status" role="status">{answering ? 'Receiving your tutor’s response…' : ''}</span>
@@ -220,11 +233,12 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
             </>
           )}
           {error && <p role="alert" className="tutor-error">{error}</p>}
-          {(error || state) && <button className="tutor-reload" type="button" disabled={answering} onClick={() => {
+          {(error || state) && <button className="tutor-reload" type="button" disabled={answering || dictation.listening} onClick={() => {
             setLoading(true)
             setError('')
             setState(null)
             speech.stop()
+            dictation.abort()
             setAttempt((value) => value + 1)
           }}>Reload conversation</button>}
         </>

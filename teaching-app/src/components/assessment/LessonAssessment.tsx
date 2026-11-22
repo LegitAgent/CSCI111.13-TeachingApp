@@ -104,7 +104,7 @@ export default function LessonAssessment({ user, lessonId, lessonPath }: {
       ) : attempt ? (
         <form onSubmit={handleSubmit}>
           <p>Answer all {attempt.questions.length} questions. Score at least {attempt.passingScorePercent}% to pass.</p>
-          <p>Use interval notation: <strong>(-infinity, -2) U [3, infinity)</strong>. Use <strong>{'{3}'}</strong> for a single point and <strong>∅</strong> for an empty set. Fractions such as <strong>-1/4</strong> are accepted.</p>
+          <p>Use interval notation: <strong>(-infinity, -2) U [3, infinity)</strong>. You can also write <strong>-inf</strong> or <strong>-∞</strong>. A single point can be written as <strong>{'{3}'}</strong> or <strong>[3,3]</strong>; the shorthand <strong>[3]</strong> is also accepted. Use <strong>∅</strong> for an empty set. Fractions such as <strong>-1/4</strong> are accepted.</p>
           <ol className="assessment-questions">
             {attempt.questions.map((question, index) => (
               <li key={question.id}>

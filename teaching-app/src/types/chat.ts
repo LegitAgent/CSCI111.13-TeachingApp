@@ -14,5 +14,6 @@ export type ChatState = {
 
 export type ChatEvent =
   | { type: 'delta'; text: string }
+  | { type: 'reset' }
   | { type: 'done'; state: ChatState }
   | { type: 'error'; message: string }

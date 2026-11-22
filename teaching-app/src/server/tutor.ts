@@ -1,6 +1,8 @@
 import 'server-only'
 import { getAdminAuth, getAdminFirestore } from '@app-firebase/admin'
 import type { ChatMessage, ChatState } from '@/types/chat'
+import { buildRubric, type ConceptAssessment } from './tutorRubric'
+import { familiarityQuestion, type LearningStage } from './tutorTeaching'
 
 export class TutorError extends Error {
   status: number
@@ -30,23 +32,24 @@ export async function loadTutor(uid: string, lessonId: string) {
   if (!lessonId || lessonId.includes('/') || lessonId === '.' || lessonId === '..') throw new TutorError(404, 'Lesson not found.')
   const db = getAdminFirestore()
   const lessonRef = db.collection('lessons').doc(lessonId)
-  const lessonSnapshot = await lessonRef.get()
-  const lesson = lessonSnapshot.data()
-  if (!lessonSnapshot.exists || lesson?.published !== true) throw new TutorError(404, 'Lesson not found.')
 
   const userRef = db.collection('users').doc(uid)
   const progressRef = userRef.collection('progress').doc(lessonId)
   const sessionRef = userRef.collection('socraticSessions').doc(lessonId)
-  const [conceptSnapshot, progressSnapshot, sessionSnapshot, messageSnapshot] = await Promise.all([
-    lessonRef.collection('concepts').get(), progressRef.get(), sessionRef.get(),
+  const [lessonSnapshot, conceptSnapshot, progressSnapshot, sessionSnapshot, messageSnapshot] = await Promise.all([
+    lessonRef.get(), lessonRef.collection('concepts').get(), progressRef.get(), sessionRef.get(),
     sessionRef.collection('messages').orderBy('sequence', 'desc').limit(40).get(),
   ])
+  const lesson = lessonSnapshot.data()
+  if (!lessonSnapshot.exists || lesson?.published !== true) throw new TutorError(404, 'Lesson not found.')
   const concepts = conceptSnapshot.docs.map((doc) => {
     const value = doc.data()
     return {
       id: doc.id, title: String(value.title ?? doc.id), order: Number(value.order) || 0,
       required: value.required === true, starterQuestion: String(value.starterQuestion ?? ''),
       successCriteria: String(value.successCriteria ?? ''), misconception: String(value.misconception ?? ''),
+      criteria: value.criteria,
+      familiarityQuestion: typeof value.familiarityQuestion === 'string' ? value.familiarityQuestion : undefined,
     }
   }).filter((concept) => concept.required).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
   if (!concepts.length) throw new TutorError(409, 'This lesson has no required concept questions yet.')
@@ -58,18 +61,45 @@ export async function loadTutor(uid: string, lessonId: string) {
     ? [...new Set<string>(progress.demonstratedConcepts.filter((id: unknown): id is string => typeof id === 'string' && ids.has(id)))] : []
   const current = concepts.find((concept) => !demonstratedConcepts.includes(concept.id)) ?? null
   const revision = sessionSnapshot.data()?.revision ?? 0
+  const rubric = buildRubric(current?.successCriteria ?? '', current?.criteria)
+  const storedAssessment = current ? sessionSnapshot.data()?.conceptAssessments?.[current.id] as ConceptAssessment | undefined : undefined
+  const previousAssessment = storedAssessment?.rubricKey === rubric.key ? storedAssessment : null
+  const storedTeaching = current ? sessionSnapshot.data()?.conceptTeaching?.[current.id] : undefined
+  const teachingStage: LearningStage = ['familiarity', 'guided', 'independent'].includes(storedTeaching?.stage)
+    ? storedTeaching.stage : 'familiarity'
+  const evidenceSources = new Map<string, string[]>()
+  for (const doc of messageSnapshot.docs.filter((doc) => doc.data().role === 'user' && doc.data().conceptId === current?.id
+    && (!doc.data().learningStage || doc.data().learningStage === 'independent')).slice(0, 8)) {
+    const value = doc.data()
+    if (value.role === 'user' && value.conceptId === current?.id && typeof value.content === 'string') evidenceSources.set(doc.id, [value.content])
+  }
+  // Previously validated quotes retain evidence even after old turns leave the context window.
+  for (const result of Object.values(previousAssessment?.criteria ?? {})) {
+    for (const citation of result.evidence) {
+      const texts = evidenceSources.get(citation.messageId) ?? []
+      evidenceSources.set(citation.messageId, [...texts, citation.quote])
+    }
+  }
   const messages: ChatMessage[] = messageSnapshot.docs.reverse().map((doc) => {
     const value = doc.data()
     return { id: doc.id, role: value.role === 'user' ? 'user' : 'assistant', content: String(value.content ?? '') }
   })
-  if (!messages.length) messages.push({ id: 'opening', role: 'assistant', content: current?.starterQuestion || 'Your conceptual section is complete.' })
+  if (!messages.length) messages.push({ id: 'opening', role: 'assistant', content: current
+    ? teachingStage === 'independent' ? current.starterQuestion : familiarityQuestion(current)
+    : 'Your conceptual section is complete.' })
+  else if (current && !storedTeaching) messages.push({ id: `familiarity-${current.id}`, role: 'assistant', content: familiarityQuestion(current) })
 
   const state: ChatState = {
     messages, revision, demonstratedConcepts,
     currentConcept: current ? { id: current.id, title: current.title } : null,
     completed: current === null,
   }
-  return { db, lesson, lessonRef, lessonId, progressRef, sessionRef, concepts, current, state }
+  return {
+    db, lesson, lessonRef, lessonId, progressRef, sessionRef, concepts, current, state,
+    rubric, previousAssessment, evidenceSources, teachingStage,
+    completedTitles: concepts.filter((concept) => demonstratedConcepts.includes(concept.id)).map((concept) => concept.title),
+    activeExample: String(sessionSnapshot.data()?.activeExample ?? ''),
+  }
 }
 
 export type TutorContext = Awaited<ReturnType<typeof loadTutor>>
@@ -101,13 +131,15 @@ export async function releaseTurn(context: TutorContext, requestId: string) {
 }
 
 export async function saveTurn(context: TutorContext, requestId: string, answer: string,
-  reply: string, passed: boolean, evidence: string, model: string) {
+  reply: string, passed: boolean, evidence: string, model: string, assessment?: ConceptAssessment,
+  teaching?: { stage: LearningStage; example: string }) {
   const current = context.current
   if (!current) throw new TutorError(409, 'The conceptual section is already complete.')
+  if (passed && context.teachingStage !== 'independent') throw new TutorError(409, 'Complete guided practice before independent assessment.')
   const demonstratedConcepts = passed
     ? [...new Set([...context.state.demonstratedConcepts, current.id])] : context.state.demonstratedConcepts
   const next = context.concepts.find((concept) => !demonstratedConcepts.includes(concept.id)) ?? null
-  const suffix = passed ? next ? `\n\n${next.starterQuestion}` : '\n\nCongratulations! You have demonstrated every required concept. You’re ready for the problem-solving test.' : ''
+  const suffix = passed ? next ? `\n\nConcept complete: ${current.title}.\nNext: ${next.title}.\n\n${familiarityQuestion(next)}` : '\n\nCongratulations! You have demonstrated every required concept. You’re ready for the problem-solving test.' : ''
   const content = reply.trim() + suffix
   const revision = context.state.revision + 1
   const userMessage: ChatMessage = { id: `${requestId}-user`, role: 'user', content: answer }
@@ -128,16 +160,34 @@ export async function saveTurn(context: TutorContext, requestId: string, answer:
         role: 'assistant', content: context.state.messages[0].content, sequence: 0, createdAt: now,
       })
     }
+    const introduction = context.state.messages.find((message) => message.id === `familiarity-${current.id}`)
+    if (introduction) transaction.set(context.sessionRef.collection('messages').doc(introduction.id), {
+      role: 'assistant', content: introduction.content, conceptId: current.id, sequence: context.state.revision * 2 + 0.5, createdAt: now,
+    })
     transaction.create(context.sessionRef.collection('messages').doc(userMessage.id), {
       role: 'user', content: answer, sequence: revision * 2 - 1, conceptId: current.id, createdAt: now,
+      learningStage: teaching?.stage === 'guided' ? 'guided' : context.teachingStage,
     })
     transaction.create(context.sessionRef.collection('messages').doc(tutorMessage.id), {
       role: 'assistant', content, sequence: revision * 2, conceptId: current.id, createdAt: now,
     })
     transaction.create(context.sessionRef.collection('turns').doc(requestId), {
       answer, conceptId: current.id, passed, evidence, model, createdAt: now,
+      learningStage: context.teachingStage,
+      ...(assessment ? { assessment } : {}),
     })
-    transaction.update(context.sessionRef, { revision, pendingTurn: null, updatedAt: now })
+    transaction.update(context.sessionRef, {
+      revision, pendingTurn: null, updatedAt: now,
+      conceptTeaching: {
+        ...session.data()?.conceptTeaching,
+        [current.id]: { stage: teaching?.stage ?? context.teachingStage },
+        ...(passed && next ? { [next.id]: { stage: 'familiarity' } } : {}),
+      },
+      activeExample: passed ? '' : teaching?.example ?? assessment?.example ?? context.activeExample,
+      ...(assessment ? {
+        conceptAssessments: { ...session.data()?.conceptAssessments, [current.id]: assessment },
+      } : {}),
+    })
     transaction.update(context.progressRef, {
       demonstratedConcepts,
       ...(!progress.data()?.mastered ? { stage: next ? 'socratic' : 'assessment' } : {}),

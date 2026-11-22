@@ -19,15 +19,31 @@ test('interval grading accepts equivalent unions, fractions, singleton points, a
     ['[1, 2] U (2, 4)', '[1, 4)'],
     ['[1, 5] U (2, 3)', '[1, 5]'],
     ['∅', '{}'],
+    ['{ }', 'empty set'],
+    ['(-inf, 3)', '(-infinity, 3)'],
+    ['(−∞, 3) union [4, +inf)', '(-inf, 3) U [4, infinity)'],
+    ['{3}', '[3]'],
+    ['[3]', '[3,3]'],
+    ['{3, 1/2, 3}', '[0.5] ∪ [3,3]'],
+    ['[3] U (-inf,-1/4)', '(-∞,-0.25) ∪ {3}'],
   ]) assert.equal(intervals.sameIntervals(intervals.parseIntervals(a), intervals.parseIntervals(b)), true)
   assert.equal(intervals.sameIntervals(intervals.parseIntervals('(-2,1)'), intervals.parseIntervals('(-2,1]')), false)
   assert.equal(intervals.sameIntervals(intervals.parseIntervals('[1,2) U (2,3]'), intervals.parseIntervals('[1,3]')), false)
 })
 
 test('invalid answer notation is rejected without evaluating code', () => {
-  for (const value of ['', '[infinity, infinity]', '[-infinity, 3)', '(3,1)', '(1,1)', '(0,1/0)', 'process.exit()', 'x > 3']) {
+  for (const value of ['', '[infinity, infinity]', '[-infinity, 3)', '(3,1)', '(1,1)', '(0,1/0)', 'process.exit()', 'x > 3', '[inf]', '{-inf}', '{3,}', '[3,4,5]', '(3)']) {
     assert.throws(() => intervals.parseIntervals(value))
   }
+})
+
+test('alternative infinity and singleton notation is graded against the stored answer key', async () => {
+  const { api, context } = await setup()
+  const { attempt } = await api.startAssessment(await context(), false)
+  const result = await api.submitAssessment(await context(), attempt.id, {
+    ...answers, q1: '(-inf,-7) union (3,+inf)', q3: '[3] U (-∞,-0.25)',
+  })
+  assert.equal(result.attempt.score, 100)
 })
 
 let instance = 0

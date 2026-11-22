@@ -12,6 +12,8 @@ async function importSource(path, replacements = []) {
 }
 
 const muse = await importSource('../src/server/muse.ts')
+const rubricLibrary = await importSource('../src/server/tutorRubric.ts')
+const teachingLibrary = await importSource('../src/server/tutorTeaching.ts')
 
 function providerStream(parts, finish = 'stop') {
   const payload = parts.map((part) => `data: ${JSON.stringify({ choices: [{ delta: { content: part } }] })}\r\n\r\n`).join('')
@@ -38,14 +40,30 @@ test('truncated or token-limited provider responses cannot be saved', async () =
   }
 })
 
-test('passing evaluations require literal evidence from the newest student answer', () => {
-  assert.deepEqual(muse.parseEvaluation('{"passed":true,"evidence":"division by zero"}', 'It is undefined because of division by zero.'), {
-    passed: true, evidence: 'division by zero',
-  })
-  for (const invalid of ['{"passed":true,"evidence":""}', '{"passed":true,"evidence":"invented"}', '{"passed":"true","evidence":"zero"}', '```json']) {
-    assert.throws(() => muse.parseEvaluation(invalid, 'division by zero'))
-  }
-  assert.equal(muse.parseEvaluation('{"passed":false,"evidence":""}', 'I do not know.').passed, false)
+test('cumulative evaluation requires every criterion and quotes only student sources', () => {
+  const rubric = rubricLibrary.buildRubric('Identify the critical numbers. Explain why intervals keep one sign.')
+  const sources = new Map([['earlier', ['The critical numbers are 1 and 3.']], ['newest', ['There are no zeros or undefined points inside, so the sign stays the same.']]])
+  const value = { reply: 'Correct.', criteria: {
+    'criterion-1': { met: true, evidence: [{ messageId: 'earlier', quote: 'critical numbers are 1 and 3' }] },
+    'criterion-2': { met: true, evidence: [{ messageId: 'newest', quote: 'no zeros or undefined points inside' }] },
+  }, example: '(x-1)/(x-3)' }
+  assert.equal(rubricLibrary.parseConceptAssessment(JSON.stringify(value), rubric, sources).passed, true)
+  const missing = structuredClone(value)
+  missing.criteria['criterion-2'] = { met: false, evidence: [] }
+  assert.equal(rubricLibrary.parseConceptAssessment(JSON.stringify(missing), rubric, sources).passed, false)
+  const invented = structuredClone(value)
+  invented.criteria['criterion-2'].evidence[0].messageId = 'assistant'
+  const recovered = rubricLibrary.parseConceptAssessment(JSON.stringify(invented), rubric, sources)
+  assert.equal(recovered.passed, false)
+  assert.equal(recovered.incompleteEvidence, true)
+  assert.equal(recovered.assessment.criteria['criterion-1'].met, true)
+  assert.deepEqual(recovered.assessment.criteria['criterion-2'], { met: false, evidence: [] })
+  const noEvidence = structuredClone(value)
+  noEvidence.criteria['criterion-2'].evidence = []
+  assert.equal(rubricLibrary.parseConceptAssessment(JSON.stringify(noEvidence), rubric, sources).passed, false)
+  const omitted = structuredClone(value)
+  delete omitted.criteria['criterion-2']
+  assert.throws(() => rubricLibrary.parseConceptAssessment(JSON.stringify(omitted), rubric, sources))
 })
 
 test('structured streaming extracts only visible reply text, including escaped characters', () => {
@@ -65,13 +83,16 @@ test('structured streaming extracts only visible reply text, including escaped c
 })
 
 let instance = 0
-async function setup() {
+async function setup(stage = 'independent') {
   const documents = new Map([
     ['lessons/rational', { published: true, title: 'Rational inequalities', version: 1 }],
     ['lessons/rational/concepts/domain', { title: 'Domain', order: 1, required: true, starterQuestion: 'Why exclude zero denominators?', successCriteria: 'Division by zero is undefined.', misconception: 'SECRET' }],
     ['lessons/rational/concepts/signs', { title: 'Signs', order: 2, required: true, starterQuestion: 'Why test intervals?', successCriteria: 'The sign is constant between critical numbers.' }],
     ['users/student/progress/rational', { stage: 'socratic', demonstratedConcepts: [], bestScore: 90, mastered: false }],
   ])
+  if (stage) documents.set('users/student/socraticSessions/rational', {
+    revision: 0, conceptTeaching: { domain: { stage }, signs: { stage } },
+  })
   const snapshot = (path) => ({ id: path.split('/').at(-1), exists: documents.has(path), data: () => structuredClone(documents.get(path)) })
   const ref = (path) => ({ path, collection: (name) => collection(`${path}/${name}`), get: async () => snapshot(path) })
   const collection = (path) => {
@@ -105,6 +126,8 @@ async function setup() {
   }
   const key = `__tutorTest${instance++}`
   globalThis[key] = {
+    ...teachingLibrary,
+    buildRubric: rubricLibrary.buildRubric,
     getAdminFirestore: () => db,
     getAdminAuth: () => ({ verifyIdToken: async (token) => {
       if (token !== 'valid') throw { code: 'auth/invalid-id-token' }
@@ -114,30 +137,159 @@ async function setup() {
   const tutor = await importSource('../src/server/tutor.ts', [[
     /import \{ getAdminAuth, getAdminFirestore \} from '@app-firebase\/admin'/,
     `const { getAdminAuth, getAdminFirestore } = globalThis[${JSON.stringify(key)}]`,
+  ], [
+    /import \{ buildRubric, type ConceptAssessment \} from '\.\/tutorRubric'/,
+    `const { buildRubric } = globalThis[${JSON.stringify(key)}]`,
+  ], [
+    /import \{ familiarityQuestion, type LearningStage \} from '\.\/tutorTeaching'/,
+    `const { familiarityQuestion } = globalThis[${JSON.stringify(key)}]`,
   ]])
   delete globalThis[key]
   return { tutor, documents }
 }
 
-async function chatRoute(tutor, streamMuse) {
+async function chatRoute(tutor, streamMuse, completeMuse = async () => { throw new Error('Fallback unavailable.') }) {
   const key = `__chatRoute${instance++}`
-  globalThis[key] = { ...tutor, parseEvaluation: muse.parseEvaluation, readReplyPrefix: muse.readReplyPrefix, streamMuse }
+  globalThis[key] = { ...tutor, ...rubricLibrary, ...teachingLibrary, readReplyPrefix: muse.readReplyPrefix, streamMuse, completeMuse }
   const route = await importSource('../src/app/api/lessons/[lessonId]/chat/route.ts', [
     [/import \{ authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError \} from '@\/server\/tutor'/,
       `const { authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError } = globalThis[${JSON.stringify(key)}]`],
-    [/import \{ parseEvaluation, readReplyPrefix, streamMuse, type ModelMessage \} from '@\/server\/muse'/,
-      `const { parseEvaluation, readReplyPrefix, streamMuse } = globalThis[${JSON.stringify(key)}]`],
+    [/import \{ completeMuse, readReplyPrefix, streamMuse \} from '@\/server\/muse'/,
+      `const { completeMuse, readReplyPrefix, streamMuse } = globalThis[${JSON.stringify(key)}]`],
+    [/import \{ assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply \} from '@\/server\/tutorRubric'/,
+      `const { assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } = globalThis[${JSON.stringify(key)}]`],
+    [/import \{ buildTeachingMessages, familiarityQuestion, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema \} from '@\/server\/tutorTeaching'/,
+      `const { buildTeachingMessages, familiarityQuestion, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } = globalThis[${JSON.stringify(key)}]`],
   ])
   delete globalThis[key]
   return route
 }
 
-function chatRequest(message = 'Division by zero is undefined.') {
+function chatRequest(message = 'Division by zero is undefined.', revision = 0, requestId = '12345678-1234-1234-1234-123456789012') {
   return new Request('http://localhost/api/lessons/rational/chat', {
     method: 'POST', headers: { Authorization: 'Bearer valid', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, requestId: '12345678-1234-1234-1234-123456789012', revision: 0 }),
+    body: JSON.stringify({ message, requestId, revision }),
   })
 }
+
+async function lastEvent(response) {
+  return (await response.text()).trim().split('\n').map((line) => JSON.parse(line)).at(-1)
+}
+
+test('a new lesson checks familiarity; yes skips the introduction without an AI call or mastery credit', async () => {
+  const { tutor, documents } = await setup(null)
+  const opening = await tutor.loadTutor('student', 'rational')
+  assert.equal(opening.teachingStage, 'familiarity')
+  assert.match(opening.state.messages[0].content, /are you familiar/)
+  const route = await chatRoute(tutor, async () => { throw new Error('No AI call is needed to accept familiarity.') })
+  const response = await route.POST(chatRequest('yeah'), { params: Promise.resolve({ lessonId: 'rational' }) })
+  const { state } = await response.json()
+  assert.deepEqual(state.demonstratedConcepts, [])
+  assert.match(state.messages.at(-1).content, /Why exclude zero denominators/)
+  const resumed = await tutor.loadTutor('student', 'rational')
+  assert.equal(resumed.teachingStage, 'independent')
+  assert.equal(resumed.evidenceSources.has('12345678-1234-1234-1234-123456789012-user'), false)
+  assert.equal(documents.get('users/student/socraticSessions/rational').conceptAssessments, undefined)
+})
+
+test('unfamiliar students receive teaching and guided practice before a fresh independent question', async () => {
+  const { tutor, documents } = await setup(null)
+  const originalKey = process.env.MUSE_CODE_API
+  process.env.MUSE_CODE_API = 'test-placeholder'
+  let calls = 0
+  const ids = ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003']
+  try {
+    const route = await chatRoute(tutor, async (messages) => {
+      calls++
+      if (calls < 3) assert.ok(messages[0].content.includes('TEACHING AND GUIDED PRACTICE'))
+      else {
+        assert.ok(messages[0].content.includes('independent assessment'))
+        const evidence = messages[0].content.split('Student evidence sources for this concept: ')[1].split('\n')[0]
+        assert.ok(!evidence.includes(`${ids[1]}-user`))
+      }
+      const values = [
+        { reply: 'A denominator is the bottom of a fraction. In 1/(x-2), x=2 would require division by zero. Can 2 be used?', nextStep: 'guided', independentQuestion: '', example: '1/(x-2)' },
+        { reply: 'You have identified the restriction in our practice example.', nextStep: 'independent', independentQuestion: 'For 1/(x+4), which input must be excluded, and why?', example: '1/(x+4)' },
+        { reply: 'Correct: the excluded input makes division by zero.', criteria: { 'criterion-1': { met: true, evidence: [{ messageId: `${ids[2]}-user`, quote: 'Division by zero is undefined' }] } }, example: '1/(x+4)', needsGuidance: false },
+      ]
+      return (async function* () { yield JSON.stringify(values[calls - 1]) })()
+    })
+    let event = await lastEvent(await route.POST(chatRequest('no, never seen it', 0, ids[0]), { params: Promise.resolve({ lessonId: 'rational' }) }))
+    assert.equal(event.type, 'done')
+    assert.deepEqual(event.state.demonstratedConcepts, [])
+    assert.equal((await tutor.loadTutor('student', 'rational')).teachingStage, 'guided')
+    event = await lastEvent(await route.POST(chatRequest('No, division by zero is undefined.', 1, ids[1]), { params: Promise.resolve({ lessonId: 'rational' }) }))
+    assert.equal(event.type, 'done')
+    assert.match(event.state.messages.at(-1).content, /Now try this independently/)
+    assert.deepEqual(event.state.demonstratedConcepts, [])
+    const resumed = await tutor.loadTutor('student', 'rational')
+    assert.equal(resumed.teachingStage, 'independent')
+    assert.equal(resumed.activeExample, '1/(x+4)')
+    assert.equal(resumed.evidenceSources.has(`${ids[1]}-user`), false)
+    event = await lastEvent(await route.POST(chatRequest('-4. Division by zero is undefined.', 2, ids[2]), { params: Promise.resolve({ lessonId: 'rational' }) }))
+    assert.equal(event.type, 'done')
+    assert.deepEqual(event.state.demonstratedConcepts, ['domain'])
+    assert.match(event.state.messages.at(-1).content, /Before we start Signs/)
+    assert.equal((await tutor.loadTutor('student', 'rational')).teachingStage, 'familiarity')
+    assert.equal(documents.get(`users/student/socraticSessions/rational/messages/${ids[1]}-user`).learningStage, 'guided')
+  } finally {
+    if (originalKey === undefined) delete process.env.MUSE_CODE_API
+    else process.env.MUSE_CODE_API = originalKey
+  }
+})
+
+test('the server prevents a guided or familiarity turn from granting mastery', async () => {
+  for (const stage of ['familiarity', 'guided']) {
+    const { tutor } = await setup(stage)
+    const context = await tutor.loadTutor('student', 'rational')
+    await tutor.acquireTurn(context, 'guided', 0, 'yes')
+    await assert.rejects(() => tutor.saveTurn(context, 'guided', 'yes', 'Correct.', true, '', 'model'), { status: 409 })
+  }
+  const result = teachingLibrary.parseTeachingResponse(JSON.stringify({
+    reply: 'Let us practise.', nextStep: 'independent', independentQuestion: 'Which input is excluded from 1/(x-2)?', example: '1/(x-2)',
+  }), false)
+  assert.equal(result.stage, 'guided')
+  assert.ok(!result.suffix.includes('independently'))
+  assert.equal(teachingLibrary.knowsTopic('yeah but idk what a sign chart is'), false)
+})
+
+test('the model can identify an unfamiliar prerequisite even without a recognized help phrase', async () => {
+  const { tutor, documents } = await setup()
+  const originalKey = process.env.MUSE_CODE_API
+  process.env.MUSE_CODE_API = 'test-placeholder'
+  try {
+    const route = await chatRoute(tutor, async () => (async function* () {
+      yield JSON.stringify({ reply: 'Let me explain a denominator first. In 1/(x-2), it is x-2. What does it equal at x=2?',
+        criteria: { 'criterion-1': { met: true, evidence: [{ messageId: '12345678-1234-1234-1234-123456789012-user', quote: 'The bottom thing' }] } },
+        example: '1/(x-2)', needsGuidance: true })
+    })())
+    const event = await lastEvent(await route.POST(chatRequest('The bottom thing is new to me.'), { params: Promise.resolve({ lessonId: 'rational' }) }))
+    assert.equal(event.type, 'done')
+    assert.deepEqual(event.state.demonstratedConcepts, [])
+    const resumed = await tutor.loadTutor('student', 'rational')
+    assert.equal(resumed.teachingStage, 'guided')
+    assert.equal(resumed.evidenceSources.size, 0)
+    assert.equal(documents.get('users/student/socraticSessions/rational').conceptAssessments, undefined)
+  } finally {
+    if (originalKey === undefined) delete process.env.MUSE_CODE_API
+    else process.env.MUSE_CODE_API = originalKey
+  }
+})
+
+test('existing conversations get a familiarity check once while retaining their saved checkpoints', async () => {
+  const { tutor, documents } = await setup(null)
+  documents.set('users/student/socraticSessions/rational', { revision: 1 })
+  documents.set('users/student/socraticSessions/rational/messages/old', { role: 'assistant', content: 'An earlier question.', sequence: 2, conceptId: 'domain' })
+  let context = await tutor.loadTutor('student', 'rational')
+  assert.equal(context.state.messages.length, 2)
+  assert.match(context.state.messages.at(-1).content, /are you familiar/)
+  await tutor.acquireTurn(context, 'migration', 1, 'yes')
+  await tutor.saveTurn(context, 'migration', 'yes', 'Try the diagnostic question.', false, '', 'familiarity-check', undefined, { stage: 'independent', example: '' })
+  context = await tutor.loadTutor('student', 'rational')
+  assert.equal(context.state.messages.filter((message) => message.id === 'familiarity-domain').length, 1)
+  assert.equal(context.state.messages.at(-1).content, 'Try the diagnostic question.')
+  assert.equal(context.state.messages[0].content, 'An earlier question.')
+})
 
 test('chat route streams feedback and saves a passing turn before reporting completion', async () => {
   const { tutor, documents } = await setup()
@@ -148,8 +300,8 @@ test('chat route streams feedback and saves a passing turn before reporting comp
       assert.ok(messages[0].content.includes('Division by zero is undefined.'))
       return (async function* () {
         yield '{"reply":"Correct. '
-        yield 'That is undefined.","passed":true,'
-        yield '"evidence":"Division by zero"}'
+        yield 'That is undefined.","criteria":{"criterion-1":{"met":true,'
+        yield '"evidence":[{"messageId":"12345678-1234-1234-1234-123456789012-user","quote":"Division by zero"}]}},"example":""}'
       })()
     })
     const response = await route.POST(chatRequest(), { params: Promise.resolve({ lessonId: 'rational' }) })
@@ -157,9 +309,66 @@ test('chat route streams feedback and saves a passing turn before reporting comp
     const events = (await response.text()).trim().split('\n').map((line) => JSON.parse(line))
     assert.equal(events.at(-1).type, 'done')
     assert.deepEqual(events.at(-1).state.demonstratedConcepts, ['domain'])
-    assert.ok(events.filter((event) => event.type === 'delta').map((event) => event.text).join('').endsWith('Why test intervals?'))
+    assert.ok(events.filter((event) => event.type === 'delta').map((event) => event.text).join('').includes('Before we start Signs'))
     assert.deepEqual(documents.get('users/student/progress/rational').demonstratedConcepts, ['domain'])
     assert.ok(!JSON.stringify(events).includes('evidence'))
+  } finally {
+    if (originalKey === undefined) delete process.env.MUSE_CODE_API
+    else process.env.MUSE_CODE_API = originalKey
+  }
+})
+
+test('a bad Muse citation saves the answer and asks a follow-up without advancing', async () => {
+  const { tutor, documents } = await setup()
+  const originalKey = process.env.MUSE_CODE_API
+  process.env.MUSE_CODE_API = 'test-placeholder'
+  try {
+    const route = await chatRoute(tutor, async () => (async function* () {
+      yield JSON.stringify({
+        reply: 'That is correct.',
+        criteria: { 'criterion-1': { met: true, evidence: [{ messageId: 'unknown', quote: 'Division by zero' }] } },
+        example: '',
+      })
+    })())
+    const response = await route.POST(chatRequest(), { params: Promise.resolve({ lessonId: 'rational' }) })
+    const events = (await response.text()).trim().split('\n').map((line) => JSON.parse(line))
+    const final = events.at(-1)
+    assert.equal(final.type, 'done')
+    assert.deepEqual(final.state.demonstratedConcepts, [])
+    assert.equal(final.state.messages.at(-2).content, 'Division by zero is undefined.')
+    assert.match(final.state.messages.at(-1).content, /explain how you reached your conclusion/)
+    assert.equal(documents.get('users/student/socraticSessions/rational').pendingTurn, null)
+  } finally {
+    if (originalKey === undefined) delete process.env.MUSE_CODE_API
+    else process.env.MUSE_CODE_API = originalKey
+  }
+})
+
+test('an interrupted stream retries once and saves only the complete replacement', async () => {
+  const { tutor, documents } = await setup()
+  const originalKey = process.env.MUSE_CODE_API
+  process.env.MUSE_CODE_API = 'test-placeholder'
+  let retries = 0
+  try {
+    const route = await chatRoute(tutor, async () => (async function* () {
+      yield '{"reply":"Partial reply'
+      throw Object.assign(new Error('Stream closed.'), { code: 'muse-stream-closed-early' })
+    })(), async () => {
+      retries++
+      return JSON.stringify({
+        reply: 'Correct. Division by zero is undefined.',
+        criteria: { 'criterion-1': { met: true, evidence: [{ messageId: '12345678-1234-1234-1234-123456789012-user', quote: 'Division by zero' }] } },
+        example: '',
+      })
+    })
+    const response = await route.POST(chatRequest(), { params: Promise.resolve({ lessonId: 'rational' }) })
+    const events = (await response.text()).trim().split('\n').map((line) => JSON.parse(line))
+    assert.equal(retries, 1)
+    assert.equal(events[1].type, 'reset')
+    assert.equal(events.at(-1).type, 'done')
+    assert.match(events.at(-1).state.messages.at(-1).content, /^Correct\./)
+    assert.deepEqual(documents.get('users/student/progress/rational').demonstratedConcepts, ['domain'])
+    assert.equal([...documents.keys()].filter((path) => path.includes('/turns/')).length, 1)
   } finally {
     if (originalKey === undefined) delete process.env.MUSE_CODE_API
     else process.env.MUSE_CODE_API = originalKey
@@ -215,7 +424,7 @@ test('one passing turn saves messages, evidence, and only the current concept', 
   assert.equal(saved.state.revision, 1)
   assert.deepEqual(saved.state.demonstratedConcepts, ['domain'])
   assert.equal(saved.state.currentConcept.id, 'signs')
-  assert.ok(saved.state.messages.at(-1).content.endsWith('Why test intervals?'))
+  assert.ok(saved.state.messages.at(-1).content.includes('Before we start Signs'))
   assert.equal(documents.get('users/student/progress/rational').bestScore, 90)
   assert.equal(documents.get('users/student/progress/rational').mastered, false)
   assert.equal(documents.get('users/student/socraticSessions/rational/turns/turn-one').evidence, 'Division by zero')
@@ -269,3 +478,122 @@ test('a changed lesson cannot commit a stale model evaluation', async () => {
   await assert.rejects(() => tutor.saveTurn(context, 'one', 'Answer', 'Correct', true, 'Answer', 'model'), { status: 409 })
   assert.deepEqual(documents.get('users/student/progress/rational').demonstratedConcepts, [])
 })
+
+test('criterion checkpoints survive reload and retain student evidence beyond the history window', async () => {
+  const { tutor, documents } = await setup()
+  documents.get('lessons/rational/concepts/domain').successCriteria = 'Identify numerator zeros. Identify denominator zeros.'
+  let context = await tutor.loadTutor('student', 'rational')
+  await tutor.acquireTurn(context, 'partial', 0, 'Numerator zeros make the fraction zero.')
+  const assessment = {
+    rubricKey: context.rubric.key,
+    criteria: {
+      'criterion-1': { met: true, evidence: [{ messageId: 'partial-user', quote: 'Numerator zeros make the fraction zero' }] },
+      'criterion-2': { met: false, evidence: [] },
+    }, example: '(x-1)/(x-3)',
+  }
+  await tutor.saveTurn(context, 'partial', 'Numerator zeros make the fraction zero.', 'What about denominator zeros?', false, 'Numerator zeros', 'model', assessment)
+  for (let index = 0; index < 45; index++) documents.set(`users/student/socraticSessions/rational/messages/later${index}`, {
+    role: 'assistant', content: 'A follow-up question.', conceptId: 'domain', sequence: 10 + index,
+  })
+  context = await tutor.loadTutor('student', 'rational')
+  assert.ok(!context.state.messages.some((message) => message.id === 'partial-user'))
+  assert.equal(context.previousAssessment.criteria['criterion-1'].met, true)
+  assert.ok(context.evidenceSources.get('partial-user').includes('Numerator zeros make the fraction zero'))
+  assert.equal(context.activeExample, '(x-1)/(x-3)')
+  documents.get('lessons/rational/concepts/domain').successCriteria = 'Explain a different requirement.'
+  const changed = await tutor.loadTutor('student', 'rational')
+  assert.equal(changed.previousAssessment, null)
+})
+
+test('passing a concept announces the transition and the next concept title explicitly', async () => {
+  const { tutor } = await setup()
+  const context = await tutor.loadTutor('student', 'rational')
+  await tutor.acquireTurn(context, 'pass', 0, 'Division by zero is undefined.')
+  const saved = await tutor.saveTurn(context, 'pass', 'Division by zero is undefined.', 'Correct.', true, 'Division by zero', 'model')
+  assert.ok(saved.suffix.includes('Concept complete: Domain.'))
+  assert.ok(saved.suffix.includes('Next: Signs.'))
+})
+
+test('asking whether the previous question passed is answered from progress without an AI call or awarding another concept', async () => {
+  const { tutor, documents } = await setup()
+  documents.get('users/student/progress/rational').demonstratedConcepts = ['domain']
+  const route = await chatRoute(tutor, async () => { throw new Error('The model must not be called for a status question.') })
+  const response = await route.POST(chatRequest('wait so did i answer the question before'), { params: Promise.resolve({ lessonId: 'rational' }) })
+  assert.equal(response.status, 200)
+  const data = await response.json()
+  assert.ok(data.state.messages.at(-1).content.includes('Yes—you completed Domain.'))
+  assert.ok(data.state.messages.at(-1).content.includes('now working on Signs'))
+  assert.deepEqual(data.state.demonstratedConcepts, ['domain'])
+  assert.equal(data.state.currentConcept.id, 'signs')
+})
+
+test('the grading prompt keeps saved evidence and explicitly distinguishes calculation from explanation', () => {
+  const rubric = rubricLibrary.buildRubric('List the intervals. Explain why one test value works.')
+  const messages = rubricLibrary.buildTutorMessages({
+    title: 'Rational', current: { title: 'Intervals', starterQuestion: 'Why divide the line?', misconception: '' },
+    rubric, previous: null, completedTitles: ['Domain'], activeExample: '(x-1)/(x-3)',
+    history: [], sources: new Map([['older', ['(-infinity,1), (1,3), (3,infinity)']]]),
+    answer: 'The sign cannot change without a zero or undefined point.', answerId: 'newest',
+  })
+  assert.ok(messages[0].content.includes('EVERY clause'))
+  assert.ok(messages[0].content.includes('Listing intervals does not explain WHY'))
+  assert.ok(messages[0].content.includes('older'))
+  assert.ok(messages[0].content.includes('Active example: (x-1)/(x-3)'))
+})
+
+test('informal clarification and repeated-question complaints are recognized without matching math answers', () => {
+  for (const answer of ['wdym', 'huh, dude you jsut repeated the same shit', 'son', 'bro what do you mean by outer ones?', 'you are repeating yourself']) {
+    assert.equal(rubricLibrary.isClarificationRequest(answer), true, answer)
+  }
+  for (const answer of ['positive / negative', 'the root is repeated so the sign stays the same', 'so that we can see where the domain is']) {
+    assert.equal(rubricLibrary.isClarificationRequest(answer), false, answer)
+  }
+})
+
+test('help turns omit grading pressure and repetitive history, and explicitly teach the last step', () => {
+  const messages = teachingLibrary.buildTeachingMessages({
+    title: 'Rational', current: { title: 'Intervals', starterQuestion: 'Why divide the line?', misconception: '' },
+    stage: 'independent', helpRequested: true, activeExample: '(x-1)/(x-3)',
+    history: [{ role: 'assistant', content: 'Earlier repeated praise' }, { role: 'user', content: 'wdym' },
+      { role: 'assistant', content: 'How would you order 1 and 3 to form the open intervals, including the outer ones?' }],
+    answer: 'huh, dude you jsut repeated the same shit',
+  })
+  assert.equal(messages.length, 4)
+  assert.ok(messages[0].content.includes('small worked numerical example'))
+  assert.ok(messages[0].content.includes('change representation or demonstrate more'))
+  assert.ok(!messages[0].content.includes('EVERY clause'))
+  assert.ok(!JSON.stringify(messages).includes('Earlier repeated praise'))
+  assert.ok(messages[2].content.includes('How would you order 1 and 3'))
+})
+
+for (const answer of ['wdym', 'huh, dude you jsut repeated the same shit', 'son']) {
+test(`${answer} requests help without changing progress even if the model awards credit`, async () => {
+  const { tutor, documents } = await setup()
+  const originalKey = process.env.MUSE_CODE_API
+  process.env.MUSE_CODE_API = 'test-placeholder'
+  try {
+    const context = await tutor.loadTutor('student', 'rational')
+    const previous = { rubricKey: context.rubric.key, criteria: {
+      'criterion-1': { met: false, evidence: [] },
+    }, example: '(x-1)/(x-3)' }
+    documents.set('users/student/socraticSessions/rational', { revision: 0, conceptAssessments: { domain: previous } })
+    const route = await chatRoute(tutor, async (messages) => {
+      assert.ok(messages.some((message) => message.content.includes('TEACHING AND GUIDED PRACTICE')))
+      assert.ok(messages.some((message) => message.content.includes('Do not praise a help request')))
+      return (async function* () {
+        yield JSON.stringify({ reply: 'Undefined means there is no value for the expression. Can we divide a number by zero?',
+          nextStep: 'guided', independentQuestion: '', example: '' })
+      })()
+    })
+    const response = await route.POST(chatRequest(answer), { params: Promise.resolve({ lessonId: 'rational' }) })
+    const events = (await response.text()).trim().split('\n').map((line) => JSON.parse(line))
+    assert.equal(events.at(-1).type, 'done')
+    assert.deepEqual(events.at(-1).state.demonstratedConcepts, [])
+    assert.deepEqual(documents.get('users/student/socraticSessions/rational').conceptAssessments.domain, previous)
+    assert.equal(documents.get('users/student/progress/rational').stage, 'socratic')
+  } finally {
+    if (originalKey === undefined) delete process.env.MUSE_CODE_API
+    else process.env.MUSE_CODE_API = originalKey
+  }
+})
+}

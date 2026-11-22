@@ -2,8 +2,8 @@ export type Interval = { lower: number; upper: number; lowerInclusive: boolean; 
 
 function endpoint(raw: string) {
   const value = raw.trim().toLowerCase().replaceAll('−', '-')
-  if (/^\+?(?:∞|infinity|inf)$/.test(value)) return Infinity
-  if (/^-(?:∞|infinity|inf)$/.test(value)) return -Infinity
+  if (/^\+?\s*(?:∞|infinity|infty|inf)$/.test(value)) return Infinity
+  if (/^-\s*(?:∞|infinity|infty|inf)$/.test(value)) return -Infinity
   if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:\s*\/\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+))?$/.test(value)) throw new Error('Use numeric endpoints or fractions.')
   const parts = value.split('/').map((part) => Number(part.trim()))
   const number = parts.length === 2 ? parts[0] / parts[1] : parts[0]
@@ -37,18 +37,28 @@ function validInterval(lower: number, upper: number, lowerInclusive: boolean, up
 
 export function parseIntervals(answer: string) {
   const value = answer.trim().replaceAll('−', '-')
-  if (['∅', '{}', 'empty', 'empty set'].includes(value.toLowerCase())) return []
+  if (['∅', 'empty', 'empty set'].includes(value.toLowerCase()) || /^\{\s*\}$/.test(value)) return []
   const parts = value.split(/\s*(?:∪|\bU\b|\bunion\b)\s*/i)
   if (!parts.length || parts.length > 20) throw new Error('Use interval notation.')
-  return normalize(parts.map((part) => {
+  return normalize(parts.flatMap((part) => {
     const point = /^\{([^{}]+)\}$/.exec(part.trim())
     if (point) {
-      const number = endpoint(point[1])
-      return validInterval(number, number, true, true)
+      const points = point[1].split(',')
+      if (points.length > 20) throw new Error('Use at most 20 points in a finite set.')
+      return points.map((raw) => {
+        const number = endpoint(raw)
+        return validInterval(number, number, true, true)
+      })
+    }
+    // Accept [3] as a student shorthand for the singleton {3}, not an open interval.
+    const singleton = /^\[\s*([^,[\]]+)\s*\]$/.exec(part.trim())
+    if (singleton) {
+      const number = endpoint(singleton[1])
+      return [validInterval(number, number, true, true)]
     }
     const match = /^(\(|\[)\s*([^,]+)\s*,\s*([^,]+)\s*(\)|\])$/.exec(part.trim())
     if (!match) throw new Error('Use intervals such as (-infinity, -2) U [3, infinity).')
-    return validInterval(endpoint(match[2]), endpoint(match[3]), match[1] === '[', match[4] === ']')
+    return [validInterval(endpoint(match[2]), endpoint(match[3]), match[1] === '[', match[4] === ']')]
   }))
 }
 
