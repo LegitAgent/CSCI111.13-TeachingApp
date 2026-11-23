@@ -13,6 +13,9 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 *.local
+.env*
+!.env.example
+.vercel/
 
 # Editor directories and files
 .vscode/*
