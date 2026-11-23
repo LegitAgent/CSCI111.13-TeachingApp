@@ -30,6 +30,7 @@ export default function HomePage() {
           <li><span className="home-step-number">01</span><h3>Explore the idea.</h3><p>Start with clear explanations and worked examples. Build the foundations before moving on.</p><span className="home-step-tag">READ & LEARN</span></li>
           <li><span className="home-step-number">02</span><h3>Talk it through.</h3><p>Your pal checks what you know, guides you through tricky steps, and helps you explain the why.</p><span className="home-step-tag">YOUR AI TUTOR</span></li>
           <li><span className="home-step-number">03</span><h3>Make it click.</h3><p>Try problems independently, see how you did, and celebrate the understanding you’ve earned.</p><span className="home-step-tag">PRACTICE & PROGRESS</span></li>
+        #Added a comment
         </ol>
       </section>
       <footer className="home-footer"><strong>PreCalPal<span>.</span></strong><p>Made for curious minds.</p><Link href="/signup">Let’s get started <span aria-hidden="true">↗</span></Link></footer>
