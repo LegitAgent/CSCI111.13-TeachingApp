@@ -17,13 +17,17 @@ export function splitMath(text: string): MathPart[] {
     const contentStart = index + opening.length
     let end = text.indexOf(closing, contentStart)
     while (end !== -1 && escaped(text, end)) end = text.indexOf(closing, end + closing.length)
-    if (end === -1 || end === contentStart
-      || (opening === '$' && (/\s/.test(text[contentStart]) || /\s/.test(text[end - 1])))) {
+    const content = end === -1 ? '' : text.slice(contentStart, end).trim()
+    // Models sometimes put spaces inside $ ... $. Accept actual math while keeping
+    // ordinary prices such as "$5 and $10" as text.
+    const spacedMath = /\\[a-zA-Z]+|[=<>≤≥∈∪∩^_{}+*/]|^[a-zA-Z]$|^[+-]?\d+(?:\.\d+)?$/.test(content)
+    if (end === -1 || !content
+      || (opening === '$' && (/\s/.test(text[contentStart]) || /\s/.test(text[end - 1])) && !spacedMath)) {
       index += opening.length
       continue
     }
     if (index > plainStart) parts.push({ type: 'text', value: text.slice(plainStart, index) })
-    parts.push({ type: 'math', value: text.slice(contentStart, end), display: opening === '\\[' || opening === '$$' })
+    parts.push({ type: 'math', value: content, display: opening === '\\[' || opening === '$$' })
     index = end + closing.length
     plainStart = index
   }

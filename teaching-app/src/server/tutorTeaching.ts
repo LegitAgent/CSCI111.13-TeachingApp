@@ -16,8 +16,9 @@ export function familiarityQuestion(concept: Pick<TeachingConcept, 'title' | 'fa
 }
 
 export function knowsTopic(answer: string) {
-  return /^(?:yes|yeah|yep|yup|yea|sure|i (?:know|am familiar|have used|understand))\b/i.test(answer.trim())
-    && !/\b(?:no|not|never|unsure|but|don't|dont|confused|explain|forgot|forget|idk|teach|help|introduction)\b/i.test(answer)
+  const text = answer.trim().replace(/[‘’]/g, "'")
+  return /^(?:yes|yeah|yep|yup|yea|sure|i (?:know|have used|understand)|i(?:'m|m| am) (?:(?:pretty|quite|very|already|fairly|somewhat) )?familiar)\b/i.test(text)
+    && !/\b(?:no|not|never|unsure|but|don't|dont|confused|explain|forgot|forget|idk|teach|help|introduction)\b/i.test(text)
 }
 
 export function needsHelp(answer: string) {

@@ -32,6 +32,11 @@ test('math delimiters survive streamed partial formulas and do not mistake curre
   }
   assert.equal(splitMath(String.raw`\[x>0\]`)[0].display, true)
   assert.equal(splitMath('$$x>0$$')[0].display, true)
+  const spaced = String.raw`Critical numbers: $ \frac{x+1}{x-3} \le 0 $.`
+  assert.equal(splitMath(spaced)[1].type, 'math')
+  const html = renderToStaticMarkup(createElement(MathText, { text: spaced }))
+  assert.ok(html.includes('<mfrac>'))
+  assert.ok(!html.includes('$'))
 })
 
 test('AI formulas render as accessible math while prose and unsafe TeX stay escaped', () => {

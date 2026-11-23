@@ -63,6 +63,32 @@ test('introduced-term memory ignores invented terms and limits its size', () => 
   assert.equal(pedagogyLibrary.rememberTerms(Array.from({ length: 45 }, (_, i) => 'term-' + i), [], '').length, 40)
 })
 
+test('familiarity recognizes natural wording but does not skip requests for help', () => {
+  for (const text of ['im pretty familiar with it', "I'm familiar with it", 'I’m quite familiar with this', 'I am fairly familiar']) {
+    assert.equal(teachingLibrary.knowsTopic(text), true, text)
+  }
+  for (const text of ["I'm not familiar", 'im familiar but explain it', 'im pretty familiar but unsure', 'yeah but idk']) {
+    assert.equal(teachingLibrary.knowsTopic(text), false, text)
+  }
+})
+
+test('only an explicit independent reference links earlier student reasoning to a new application', () => {
+  const history = [
+    { id: 'tutor', role: 'assistant', content: 'Division by zero is undefined.' },
+    { id: 'guided', role: 'user', learningStage: 'guided', content: 'Dividing by zero results in undefined.' },
+  ]
+  assert.equal(rubricLibrary.collectStudentEvidence(history).size, 0)
+  const agreement = rubricLibrary.collectStudentEvidence(history, { id: 'new', content: 'yes' })
+  assert.equal(agreement.has('guided'), false)
+  const linked = rubricLibrary.collectStudentEvidence(history, { id: 'new', content: 'Same reason as before, it cannot be 4.' })
+  assert.deepEqual(linked.get('guided'), ['Dividing by zero results in undefined.'])
+  assert.equal(linked.has('tutor'), false)
+  assert.equal(rubricLibrary.collectStudentEvidence([
+    ...history, { id: 'reference', role: 'user', learningStage: 'independent', content: 'Same reason as before.' },
+    { id: 'later', role: 'user', learningStage: 'guided', content: 'Another idea.' },
+  ]).has('later'), false)
+})
+
 test('truncated or token-limited provider responses cannot be saved', async () => {
   for (const reason of [null, 'length']) {
     await assert.rejects(async () => {
@@ -159,6 +185,7 @@ async function setup(stage = 'independent') {
   globalThis[key] = {
     ...teachingLibrary,
     buildRubric: rubricLibrary.buildRubric,
+    collectStudentEvidence: rubricLibrary.collectStudentEvidence,
     getAdminFirestore: () => db,
     getAdminAuth: () => ({ verifyIdToken: async (token) => {
       if (token !== 'valid') throw { code: 'auth/invalid-id-token' }
@@ -169,8 +196,8 @@ async function setup(stage = 'independent') {
     /import \{ getAdminAuth, getAdminFirestore \} from '@app-firebase\/admin'/,
     `const { getAdminAuth, getAdminFirestore } = globalThis[${JSON.stringify(key)}]`,
   ], [
-    /import \{ buildRubric, type ConceptAssessment \} from '\.\/tutorRubric'/,
-    `const { buildRubric } = globalThis[${JSON.stringify(key)}]`,
+    /import \{ buildRubric, collectStudentEvidence, type ConceptAssessment \} from '\.\/tutorRubric'/,
+    `const { buildRubric, collectStudentEvidence } = globalThis[${JSON.stringify(key)}]`,
   ], [
     /import \{ familiarityQuestion, type LearningStage \} from '\.\/tutorTeaching'/,
     `const { familiarityQuestion } = globalThis[${JSON.stringify(key)}]`,
@@ -187,8 +214,8 @@ async function chatRoute(tutor, streamMuse, completeMuse = async () => { throw n
       `const { authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError } = globalThis[${JSON.stringify(key)}]`],
     [/import \{ completeMuse, readReplyPrefix, streamMuse \} from '@\/server\/muse'/,
       `const { completeMuse, readReplyPrefix, streamMuse } = globalThis[${JSON.stringify(key)}]`],
-    [/import \{ assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply \} from '@\/server\/tutorRubric'/,
-      `const { assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } = globalThis[${JSON.stringify(key)}]`],
+    [/import \{ assessmentSchema, buildTutorMessages, collectStudentEvidence, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply \} from '@\/server\/tutorRubric'/,
+      `const { assessmentSchema, buildTutorMessages, collectStudentEvidence, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } = globalThis[${JSON.stringify(key)}]`],
     [/import \{ buildTeachingMessages, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema \} from '@\/server\/tutorTeaching'/,
       `const { buildTeachingMessages, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } = globalThis[${JSON.stringify(key)}]`],
     [/import \{ rememberTerms, wantsIndependentAttempt, wantsThinkingSpace \} from '@\/server\/tutorPedagogy'/,
@@ -231,6 +258,51 @@ test('introduced terms persist through conversation reload without granting mast
   assert.deepEqual(resumed.introducedTerms, ['sign chart'])
   assert.deepEqual(resumed.state.demonstratedConcepts, [])
   assert.equal(resumed.teachingStage, 'guided')
+})
+
+test('referenced guided reasoning passes with the independent application and survives reload', async () => {
+  const { tutor, documents } = await setup('independent')
+  documents.set('users/student/socraticSessions/rational/messages/guided-user', {
+    role: 'user', content: 'Dividing by zero results in undefined.', conceptId: 'domain', sequence: 1, learningStage: 'guided',
+  })
+  const originalKey = process.env.MUSE_CODE_API
+  process.env.MUSE_CODE_API = 'test-placeholder'
+  try {
+    const route = await chatRoute(tutor, async (messages) => {
+      assert.ok(messages[0].content.includes('guided-user'))
+      return (async function* () {
+        yield JSON.stringify({ reply: 'Yes, the original expression is undefined there.', criteria: {
+          'criterion-1': { met: true, evidence: [
+            { messageId: 'guided-user', quote: 'Dividing by zero results in undefined.' },
+            { messageId: '12345678-1234-1234-1234-123456789012-user', quote: 'Same reason as before, it cannot be 4.' },
+          ] },
+        }, example: '', needsGuidance: false, introducedTerms: [] })
+      })()
+    })
+    const event = await lastEvent(await route.POST(chatRequest('Same reason as before, it cannot be 4.'),
+      { params: Promise.resolve({ lessonId: 'rational' }) }))
+    assert.equal(event.type, 'done')
+    assert.deepEqual(event.state.demonstratedConcepts, ['domain'])
+    assert.match(event.state.messages.at(-1).content, /Concept complete: Domain/)
+    assert.equal((await tutor.loadTutor('student', 'rational')).teachingStage, 'familiarity')
+  } finally {
+    if (originalKey === undefined) delete process.env.MUSE_CODE_API
+    else process.env.MUSE_CODE_API = originalKey
+  }
+})
+
+test('reloading restores an explicit reference without admitting unreferenced guided replies', async () => {
+  const { tutor, documents } = await setup('independent')
+  const path = 'users/student/socraticSessions/rational/messages/'
+  documents.set(path + 'earlier', { role: 'user', content: 'A zero denominator is undefined.', conceptId: 'domain', sequence: 1, learningStage: 'guided' })
+  documents.set(path + 'transfer', { role: 'user', content: 'Same reason as before, 4 is excluded.', conceptId: 'domain', sequence: 2, learningStage: 'independent' })
+  documents.set(path + 'later', { role: 'user', content: 'A later explanation.', conceptId: 'domain', sequence: 3, learningStage: 'guided' })
+  documents.set(path + 'other', { role: 'user', content: 'Another concept.', conceptId: 'signs', sequence: 4, learningStage: 'independent' })
+  const context = await tutor.loadTutor('student', 'rational')
+  assert.deepEqual(context.evidenceSources.get('earlier'), ['A zero denominator is undefined.'])
+  assert.equal(context.evidenceSources.has('later'), false)
+  assert.equal(context.evidenceSources.has('other'), false)
+  assert.deepEqual(context.state.demonstratedConcepts, [])
 })
 
 test('a new lesson checks familiarity; yes skips the introduction without an AI call or mastery credit', async () => {

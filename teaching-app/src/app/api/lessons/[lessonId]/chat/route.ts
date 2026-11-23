@@ -1,6 +1,6 @@
 import { authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError } from '@/server/tutor'
 import { completeMuse, readReplyPrefix, streamMuse } from '@/server/muse'
-import { assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } from '@/server/tutorRubric'
+import { assessmentSchema, buildTutorMessages, collectStudentEvidence, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } from '@/server/tutorRubric'
 import { buildTeachingMessages, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } from '@/server/tutorTeaching'
 import type { ConceptAssessment } from '@/server/tutorRubric'
 import type { LearningStage } from '@/server/tutorTeaching'
@@ -78,7 +78,7 @@ export async function POST(request: Request, { params }: Context) {
     if (!process.env.MUSE_CODE_API) throw new TutorError(503, 'The tutor is not configured. Set MUSE_CODE_API on the server.')
     const answerId = `${requestId}-user`
     const sources = new Map(context.evidenceSources)
-    sources.set(answerId, [answer])
+    for (const [id, texts] of collectStudentEvidence(context.evidenceMessages, { id: answerId, content: answer })) sources.set(id, texts)
     const helpRequested = isClarificationRequest(answer) || needsHelp(answer)
     const teachingTurn = context.teachingStage !== 'independent' || helpRequested
     const messages = teachingTurn ? buildTeachingMessages({

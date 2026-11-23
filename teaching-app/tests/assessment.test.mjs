@@ -57,8 +57,16 @@ const keys = [
 ]
 
 async function addNotationQuestions(docs) {
-  const bank = JSON.parse(await readFile(new URL('../scripts/data/set-builder-questions.json', import.meta.url), 'utf8'))
-  for (const q of bank.questions) {
+  // Standalone fixtures: tests must not depend on optional one-time seed scripts.
+  const questions = [
+    { id: 'rational-set-membership', prompt: 'What does ∈ mean?', choices: [
+      { id: 'a', text: 'Belongs to' }, { id: 'b', text: 'Divided by' },
+    ], correctChoiceId: 'a', explanation: '∈ denotes membership in a set.' },
+    { id: 'rational-set-bounded-interval', prompt: 'Convert {x ∈ ℝ | −2 < x ≤ 5} to interval notation.', choices: [
+      { id: 'a', text: '[−2, 5)' }, { id: 'b', text: '(−2, 5]' },
+    ], correctChoiceId: 'b', explanation: 'Exclude −2 and include 5.' },
+  ]
+  for (const q of questions) {
     docs.set('lessons/rational/questions/' + q.id, { active: true, version: 1,
       format: 'multiple-choice', prompt: q.prompt, choices: q.choices })
     docs.set('answerKeys/' + q.id + '-v1', { lessonId: 'rational', questionId: q.id, questionVersion: 1,
