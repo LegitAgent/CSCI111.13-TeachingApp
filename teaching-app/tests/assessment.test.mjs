@@ -56,6 +56,52 @@ const keys = [
   [{ lower: '4', upper: '19', lowerInclusive: false, upperInclusive: true }],
 ]
 
+async function addNotationQuestions(docs) {
+  const bank = JSON.parse(await readFile(new URL('../scripts/data/set-builder-questions.json', import.meta.url), 'utf8'))
+  for (const q of bank.questions) {
+    docs.set('lessons/rational/questions/' + q.id, { active: true, version: 1,
+      format: 'multiple-choice', prompt: q.prompt, choices: q.choices })
+    docs.set('answerKeys/' + q.id + '-v1', { lessonId: 'rational', questionId: q.id, questionVersion: 1,
+      correctChoiceId: q.correctChoiceId, explanation: q.explanation })
+  }
+}
+
+test('mixed assessments select three interval problems and two notation MCQs without exposing keys', async () => {
+  const { api, context, docs } = await setup()
+  await addNotationQuestions(docs)
+  const { attempt } = await api.startAssessment(await context(), false)
+  assert.equal(attempt.questions.filter((q) => q.format === 'multiple-choice').length, 2)
+  assert.equal(attempt.questions.filter((q) => q.format !== 'multiple-choice').length, 3)
+  assert.ok(!JSON.stringify(attempt).includes('correctChoiceId'))
+  assert.ok(!JSON.stringify(attempt).includes('explanation'))
+  const stored = docs.get('users/student/assessmentAttempts/' + attempt.id)
+  const submitted = Object.fromEntries(stored.questions.map((q) => [q.id, q.correctChoiceId ?? answers[q.id]]))
+  // An attempted fabricated choice cannot alter scores or submit the attempt.
+  const mcq = stored.questions.find((q) => q.format === 'multiple-choice')
+  const current = await context()
+  await assert.rejects(() => api.submitAssessment(current, attempt.id, { ...submitted, [mcq.id]: 'invented-choice' }), { status: 400 })
+  assert.equal(docs.get('users/student/assessmentAttempts/' + attempt.id).status, 'in-progress')
+  // Grade against the original snapshot even if the bank later changes.
+  docs.get('answerKeys/' + mcq.id + '-v1').correctChoiceId = 'different'
+  const result = await api.submitAssessment(await context(), attempt.id, submitted)
+  assert.equal(result.attempt.score, 100)
+  assert.equal(result.attempt.passed, true)
+  const reviewed = result.attempt.results.find((q) => q.questionId === mcq.id)
+  assert.equal(reviewed.answer, mcq.choices.find((c) => c.id === mcq.correctChoiceId).text)
+  assert.ok(!JSON.stringify(result).includes('correctChoiceId'))
+})
+
+test('MCQs with invalid private keys cannot start an assessment', async () => {
+  const { api, context, docs } = await setup()
+  await addNotationQuestions(docs)
+  for (const [path, value] of docs) {
+    if (path.startsWith('answerKeys/rational-set-')) value.correctChoiceId = 'not-a-choice'
+  }
+  const current = await context()
+  await assert.rejects(() => api.startAssessment(current, false), { status: 409 })
+  assert.equal([...docs.keys()].filter((path) => path.includes('/assessmentAttempts/')).length, 0)
+})
+
 async function setup({ completed = true } = {}) {
   const docs = new Map([
     ['lessons/rational', { title: 'Rational', published: true, version: 1, passingScorePercent: 80 }],

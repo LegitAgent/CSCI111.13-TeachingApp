@@ -19,6 +19,12 @@
 .assessment-questions input { display: block; width: 100%; padding: 13px 18px; border: 1.5px solid #cfc4de; border-radius: 24px; color: var(--ink); background: #fff; font-size: 15px; }
 .assessment-questions input::placeholder { color: #948b9e; font-size: 13px; }
 .assessment-questions input:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-soft); }
+.assessment-choices { display: grid; gap: 10px; min-width: 0; }
+.assessment-questions .assessment-choice { display: flex; align-items: center; gap: 12px; margin: 0; padding: 14px 16px; border: 1px solid var(--purple-border); border-radius: 16px; font-size: 14px; font-weight: 400; color: var(--ink); cursor: pointer; }
+.assessment-choice[data-selected='true'] { background: var(--purple-soft); border-color: var(--purple); }
+.assessment-questions .assessment-choice input { appearance: auto; width: 18px; height: 18px; margin: 0; padding: 0; flex-shrink: 0; accent-color: var(--purple); box-shadow: none; }
+.assessment-choice:focus-within { outline: 3px solid var(--purple-border); outline-offset: 2px; }
+.assessment-choices:disabled .assessment-choice { cursor: wait; opacity: .65; }
 .assessment-questions li > p:not(.assessment-question-number) { color: var(--muted); font-size: 13px; line-height: 1.8; margin-top: 8px; }
 .assessment-submit { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 22px; border-top: 1px solid var(--line); }
 .assessment-submit p { font-size: 12px; color: var(--muted); }

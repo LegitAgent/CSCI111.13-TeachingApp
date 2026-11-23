@@ -2,6 +2,14 @@ import 'server-only'
 
 export type ModelMessage = { role: 'developer' | 'assistant' | 'user'; content: string }
 
+export function museSettings() {
+  const reasoningEffort = process.env.MUSE_REASONING_EFFORT?.trim() || 'low'
+  if (!['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(reasoningEffort)) {
+    throw new Error('MUSE_REASONING_EFFORT must be minimal, low, medium, high, xhigh, or max.')
+  }
+  return { model: process.env.MUSE_MODEL?.trim() || 'muse-spark-1.3', reasoningEffort }
+}
+
 function responseError(code: string) {
   return Object.assign(new Error('Muse returned an incomplete or invalid response.'), { code })
 }
@@ -92,16 +100,17 @@ export function readReplyPrefix(json: string) {
 async function requestMuse(messages: ModelMessage[], signal: AbortSignal, schema: object, stream: boolean) {
   const apiKey = process.env.MUSE_CODE_API
   if (!apiKey) throw new Error('The tutor is not configured. Set MUSE_CODE_API on the server.')
+  const settings = museSettings()
 
   const response = await fetch('https://api.meta.ai/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: stream ? 'text/event-stream' : 'application/json' },
     body: JSON.stringify({
-      model: process.env.MUSE_MODEL || 'muse-spark-1.3',
+      model: settings.model,
       messages,
       stream,
-      reasoning_effort: stream ? 'minimal' : 'low',
-      max_completion_tokens: stream ? 2400 : 4000,
+      reasoning_effort: settings.reasoningEffort,
+      max_completion_tokens: stream ? 4000 : 6000,
       response_format: {
         type: 'json_schema',
         json_schema: {

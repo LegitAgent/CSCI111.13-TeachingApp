@@ -130,15 +130,24 @@ export default function LessonAssessment({ user, lessonId, lessonPath }: {
         <form onSubmit={handleSubmit}>
           <p className="assessment-instructions">Take your time. Answer all {attempt.questions.length} questions and score at least <strong>{attempt.passingScorePercent}%</strong> to pass.</p>
           <div className="assessment-completion"><span>{attempt.questions.filter((question) => answers[question.id]?.trim()).length} of {attempt.questions.length} answered</span><progress max={attempt.questions.length} value={attempt.questions.filter((question) => answers[question.id]?.trim()).length} aria-label="Questions answered" /></div>
-          <details className="assessment-notation"><summary>A quick guide to answer notation</summary><p id="notation-help">Use interval notation: <strong>(-infinity, -2) U [3, infinity)</strong>. You can also write <strong>-inf</strong> or <strong>-∞</strong>. A single point can be written as <strong>{'{3}'}</strong> or <strong>[3,3]</strong>; the shorthand <strong>[3]</strong> is also accepted. Use <strong>∅</strong> for an empty set. Fractions such as <strong>-1/4</strong> are accepted.</p></details>
+          {attempt.questions.some((question) => question.format !== 'multiple-choice') && <details className="assessment-notation"><summary>A quick guide to answer notation</summary><p id="notation-help">Use interval notation: <strong>(-infinity, -2) U [3, infinity)</strong>. You can also write <strong>-inf</strong> or <strong>-∞</strong>. A single point can be written as <strong>{'{3}'}</strong> or <strong>[3,3]</strong>; the shorthand <strong>[3]</strong> is also accepted. Use <strong>∅</strong> for an empty set. Fractions such as <strong>-1/4</strong> are accepted.</p></details>}
           <ol className="assessment-questions">
             {attempt.questions.map((question, index) => (
               <li key={question.id}>
                 <p className="assessment-question-number">QUESTION {index + 1}</p>
                 <h3 id={`question-${index}`}>{question.prompt}</h3>
+                {question.format === 'multiple-choice' ? <fieldset className="assessment-choices" disabled={busy} aria-describedby={`question-${index}`}>
+                  <legend className="sr-only">Select one answer for question {index + 1}</legend>
+                  {question.choices.map((choice) => <label className="assessment-choice" key={choice.id} data-selected={answers[question.id] === choice.id}>
+                    <input type="radio" name={`answer-${question.id}`} value={choice.id} required checked={answers[question.id] === choice.id}
+                      onChange={() => setAnswers((current) => ({ ...current, [question.id]: choice.id }))} />
+                    <span>{choice.text}</span>
+                  </label>)}
+                </fieldset> : <>
                 <label htmlFor={`answer-${index}`}>Your solution</label>
                 <input id={`answer-${index}`} aria-describedby={`question-${index}`} placeholder="e.g. (-inf, 2) U {3}" type="text" autoComplete="off" required maxLength={500} disabled={busy}
                   value={answers[question.id] ?? ''} onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))} />
+                </>}
               </li>
             ))}
           </ol>

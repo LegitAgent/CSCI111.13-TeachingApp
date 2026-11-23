@@ -6,6 +6,7 @@ import type { ChatEvent, ChatState } from '@/types/chat'
 import Link from 'next/link'
 import { useTutorSpeech } from '@/hooks/useTutorSpeech'
 import { useTutorDictation } from '@/hooks/useTutorDictation'
+import MathText from './MathText'
 import '@/components/tutor/TutorChat.css'
 
 export default function TutorChat({ user, lessonId, onProgress, assessmentHref, active = true }: {
@@ -191,7 +192,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                 {state.messages.map((message) => (
                   <li className={`tutor-message tutor-message-${message.role}`} key={message.id}>
                     <strong>{message.role === 'user' ? 'You' : 'PreCalPal'}</strong>
-                    <p>{message.content}</p>
+                    <p>{message.role === 'assistant' ? <MathText text={message.content} /> : message.content}</p>
                     {message.role === 'assistant' && speech.supported && (
                       <button className="tutor-read-aloud" type="button" aria-pressed={speech.speakingId === message.id}
                         disabled={dictation.listening}
@@ -205,7 +206,7 @@ export default function TutorChat({ user, lessonId, onProgress, assessmentHref, 
                   <li className="tutor-message tutor-message-user"><strong>You</strong><p>{submitted}</p></li>
                 )}
                 {answering && (
-                  <li className="tutor-message tutor-message-assistant"><strong>PreCalPal</strong><p>{streamingReply || 'Thinking it through…'}</p></li>
+                  <li className="tutor-message tutor-message-assistant"><strong>PreCalPal</strong><p><MathText text={streamingReply || 'Thinking it through…'} /></p></li>
                 )}
               </ol>
               {state.completed ? <div className="tutor-complete">

@@ -32,8 +32,37 @@ Set local server credentials in `.env.local`:
 - `FIREBASE_PRIVATE_KEY`
 - `MUSE_CODE_API`
 - `MUSE_MODEL` (optional; defaults to `muse-spark-1.3`)
+- `MUSE_REASONING_EFFORT` (optional; defaults to `low`)
 
 Use `.env.example` for the required variable names. Keep real credentials in `.env.local` and Vercel's environment settings. The Admin SDK uses the service-account credentials above on Vercel.
+
+## Tutor behavior and model settings
+
+The tutor assumes normal algebra prerequisites but introduces lesson-specific tools before using them. It connects names to purposes, explains why steps work, and tracks introduced terms separately from demonstrated mastery. Guided work cannot earn mastery; independent reasoning still needs evidence. Direct explanations may end without a new question, and requests such as “let me think” wait without calling the AI. Tutor replies support inline and displayed LaTeX through KaTeX, including fractions and small sign charts; read-aloud converts common notation into spoken words.
+
+Spark 1.3 with `low` reasoning is the default balance. Set `MUSE_MODEL=muse-wonder-1.0` to try a stronger, slower model; set `MUSE_REASONING_EFFORT` to `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Higher reasoning effort increases latency and token use. Environment changes on Vercel require redeployment.
+
+Run `node scripts/benchmark-tutor.mjs` to compare Spark low/medium and Wonder low using two synthetic teaching prompts with the real tutor instructions. It measures first visible reply and full completion, makes six billable API requests, and does not access student data or write progress. These small samples are diagnostic, not a general model-quality evaluation.
+
+References: [Meta model selection](https://dev.meta.ai/docs/choose-a-model) and [reasoning effort](https://dev.meta.ai/docs/reasoning).
+
+## Set-builder assessment questions
+
+Assessments accept interval inputs and multiple-choice questions. When both formats are available, a fresh five-question test selects three interval problems and two MCQs, filling any shortage from the remaining bank. Existing attempts retain their original questions and private grading snapshots.
+
+Five prepared MCQs in `scripts/data/set-builder-questions.json` cover ∈, the “such that” separator, bounded intervals, OR/union, and plain-language interpretation. Preview them locally:
+
+```sh
+node scripts/seed-set-builder.mjs
+```
+
+After deploying the MCQ support, add them to Firestore using your local Admin credentials:
+
+```sh
+node scripts/seed-set-builder.mjs --write
+```
+
+The script creates active documents under `lessons/rational-inequalities/questions/{id}` and private keys under `answerKeys/{id}-v1`. It does not overwrite different existing content or change student progress. An identical rerun makes no changes. Questions contain `format: "multiple-choice"` and `choices: [{ id, text }]`; keys contain `lessonId`, `questionId`, `questionVersion`, `correctChoiceId`, and `explanation`. Correct choices stay on the server until submission. This adds MCQ interpretation exercises; the typed-input checker remains an interval-notation checker.
 
 ## Source structure
 

@@ -12,8 +12,13 @@ async function importSource(path, replacements = []) {
 }
 
 const muse = await importSource('../src/server/muse.ts')
-const rubricLibrary = await importSource('../src/server/tutorRubric.ts')
-const teachingLibrary = await importSource('../src/server/tutorTeaching.ts')
+const pedagogyLibrary = await importSource('../src/server/tutorPedagogy.ts')
+globalThis.__pedagogyTest = pedagogyLibrary
+const pedagogyImport = [[/import \{ pedagogyInstructions \} from '\.\/tutorPedagogy'/,
+  'const { pedagogyInstructions } = globalThis.__pedagogyTest']]
+const rubricLibrary = await importSource('../src/server/tutorRubric.ts', pedagogyImport)
+const teachingLibrary = await importSource('../src/server/tutorTeaching.ts', pedagogyImport)
+delete globalThis.__pedagogyTest
 
 function providerStream(parts, finish = 'stop') {
   const payload = parts.map((part) => `data: ${JSON.stringify({ choices: [{ delta: { content: part } }] })}\r\n\r\n`).join('')
@@ -30,6 +35,32 @@ test('provider SSE parser handles arbitrary byte boundaries and Unicode', async 
   let text = ''
   for await (const delta of muse.readProviderText(providerStream(['Correct. ', 'x ≥ 2']))) text += delta
   assert.equal(text, 'Correct. x ≥ 2')
+})
+
+test('Muse defaults to light reasoning and allows an explicit model/effort override', () => {
+  const previousModel = process.env.MUSE_MODEL
+  const previousEffort = process.env.MUSE_REASONING_EFFORT
+  try {
+    delete process.env.MUSE_MODEL
+    delete process.env.MUSE_REASONING_EFFORT
+    assert.deepEqual(muse.museSettings(), { model: 'muse-spark-1.3', reasoningEffort: 'low' })
+    process.env.MUSE_MODEL = 'muse-wonder-1.0'
+    process.env.MUSE_REASONING_EFFORT = 'medium'
+    assert.deepEqual(muse.museSettings(), { model: 'muse-wonder-1.0', reasoningEffort: 'medium' })
+    process.env.MUSE_REASONING_EFFORT = 'none'
+    assert.throws(() => muse.museSettings(), /MUSE_REASONING_EFFORT/)
+  } finally {
+    if (previousModel === undefined) delete process.env.MUSE_MODEL
+    else process.env.MUSE_MODEL = previousModel
+    if (previousEffort === undefined) delete process.env.MUSE_REASONING_EFFORT
+    else process.env.MUSE_REASONING_EFFORT = previousEffort
+  }
+})
+
+test('introduced-term memory ignores invented terms and limits its size', () => {
+  assert.deepEqual(pedagogyLibrary.rememberTerms(['fractions'], ['Sign Chart', 'asymptote', null, ''], 'A sign chart records signs.'),
+    ['fractions', 'sign chart'])
+  assert.equal(pedagogyLibrary.rememberTerms(Array.from({ length: 45 }, (_, i) => 'term-' + i), [], '').length, 40)
 })
 
 test('truncated or token-limited provider responses cannot be saved', async () => {
@@ -150,7 +181,7 @@ async function setup(stage = 'independent') {
 
 async function chatRoute(tutor, streamMuse, completeMuse = async () => { throw new Error('Fallback unavailable.') }) {
   const key = `__chatRoute${instance++}`
-  globalThis[key] = { ...tutor, ...rubricLibrary, ...teachingLibrary, readReplyPrefix: muse.readReplyPrefix, streamMuse, completeMuse }
+  globalThis[key] = { ...tutor, ...rubricLibrary, ...teachingLibrary, ...pedagogyLibrary, readReplyPrefix: muse.readReplyPrefix, streamMuse, completeMuse }
   const route = await importSource('../src/app/api/lessons/[lessonId]/chat/route.ts', [
     [/import \{ authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError \} from '@\/server\/tutor'/,
       `const { authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError } = globalThis[${JSON.stringify(key)}]`],
@@ -158,8 +189,10 @@ async function chatRoute(tutor, streamMuse, completeMuse = async () => { throw n
       `const { completeMuse, readReplyPrefix, streamMuse } = globalThis[${JSON.stringify(key)}]`],
     [/import \{ assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply \} from '@\/server\/tutorRubric'/,
       `const { assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } = globalThis[${JSON.stringify(key)}]`],
-    [/import \{ buildTeachingMessages, familiarityQuestion, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema \} from '@\/server\/tutorTeaching'/,
-      `const { buildTeachingMessages, familiarityQuestion, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } = globalThis[${JSON.stringify(key)}]`],
+    [/import \{ buildTeachingMessages, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema \} from '@\/server\/tutorTeaching'/,
+      `const { buildTeachingMessages, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } = globalThis[${JSON.stringify(key)}]`],
+    [/import \{ rememberTerms, wantsIndependentAttempt, wantsThinkingSpace \} from '@\/server\/tutorPedagogy'/,
+      `const { rememberTerms, wantsIndependentAttempt, wantsThinkingSpace } = globalThis[${JSON.stringify(key)}]`],
   ])
   delete globalThis[key]
   return route
@@ -175,6 +208,30 @@ function chatRequest(message = 'Division by zero is undefined.', revision = 0, r
 async function lastEvent(response) {
   return (await response.text()).trim().split('\n').map((line) => JSON.parse(line)).at(-1)
 }
+
+test('requests for thinking space bypass the model and preserve stage and mastery', async () => {
+  const { tutor, documents } = await setup('guided')
+  const route = await chatRoute(tutor, async () => { throw new Error('Must not interrupt thinking with an AI call.') })
+  const response = await route.POST(chatRequest('hold on, let me think'), { params: Promise.resolve({ lessonId: 'rational' }) })
+  const { state } = await response.json()
+  assert.deepEqual(state.demonstratedConcepts, [])
+  assert.match(state.messages.at(-1).content, /wait for your next thought/)
+  assert.ok(!state.messages.at(-1).content.includes('?'))
+  assert.equal((await tutor.loadTutor('student', 'rational')).teachingStage, 'guided')
+  assert.equal(documents.get('users/student/socraticSessions/rational').pendingTurn, null)
+})
+
+test('introduced terms persist through conversation reload without granting mastery', async () => {
+  const { tutor } = await setup('guided')
+  const context = await tutor.loadTutor('student', 'rational')
+  await tutor.acquireTurn(context, 'memory', 0, 'Please explain the name.')
+  await tutor.saveTurn(context, 'memory', 'Please explain the name.', 'A sign chart records signs.', false, '', 'test',
+    undefined, { stage: 'guided', example: '', introducedTerms: ['sign chart'] })
+  const resumed = await tutor.loadTutor('student', 'rational')
+  assert.deepEqual(resumed.introducedTerms, ['sign chart'])
+  assert.deepEqual(resumed.state.demonstratedConcepts, [])
+  assert.equal(resumed.teachingStage, 'guided')
+})
 
 test('a new lesson checks familiarity; yes skips the introduction without an AI call or mastery credit', async () => {
   const { tutor, documents } = await setup(null)
@@ -318,7 +375,7 @@ test('chat route streams feedback and saves a passing turn before reporting comp
   }
 })
 
-test('a bad Muse citation saves the answer and asks a follow-up without advancing', async () => {
+test('a bad Muse citation preserves the answer without advancing or forcing another question', async () => {
   const { tutor, documents } = await setup()
   const originalKey = process.env.MUSE_CODE_API
   process.env.MUSE_CODE_API = 'test-placeholder'
@@ -336,7 +393,8 @@ test('a bad Muse citation saves the answer and asks a follow-up without advancin
     assert.equal(final.type, 'done')
     assert.deepEqual(final.state.demonstratedConcepts, [])
     assert.equal(final.state.messages.at(-2).content, 'Division by zero is undefined.')
-    assert.match(final.state.messages.at(-1).content, /explain how you reached your conclusion/)
+    assert.match(final.state.messages.at(-1).content, /couldn’t reliably assess/)
+    assert.ok(!final.state.messages.at(-1).content.includes('?'))
     assert.equal(documents.get('users/student/socraticSessions/rational').pendingTurn, null)
   } finally {
     if (originalKey === undefined) delete process.env.MUSE_CODE_API
@@ -559,7 +617,7 @@ test('help turns omit grading pressure and repetitive history, and explicitly te
     answer: 'huh, dude you jsut repeated the same shit',
   })
   assert.equal(messages.length, 4)
-  assert.ok(messages[0].content.includes('small worked numerical example'))
+  assert.ok(messages[0].content.includes('purpose, name, and a small worked example'))
   assert.ok(messages[0].content.includes('change representation or demonstrate more'))
   assert.ok(!messages[0].content.includes('EVERY clause'))
   assert.ok(!JSON.stringify(messages).includes('Earlier repeated praise'))

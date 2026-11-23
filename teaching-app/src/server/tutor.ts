@@ -67,6 +67,9 @@ export async function loadTutor(uid: string, lessonId: string) {
   const storedTeaching = current ? sessionSnapshot.data()?.conceptTeaching?.[current.id] : undefined
   const teachingStage: LearningStage = ['familiarity', 'guided', 'independent'].includes(storedTeaching?.stage)
     ? storedTeaching.stage : 'familiarity'
+  const storedTerms = sessionSnapshot.data()?.introducedTerms
+  const introducedTerms: string[] = Array.isArray(storedTerms)
+    ? storedTerms.filter((term): term is string => typeof term === 'string' && term.length <= 80).slice(-40) : []
   const evidenceSources = new Map<string, string[]>()
   for (const doc of messageSnapshot.docs.filter((doc) => doc.data().role === 'user' && doc.data().conceptId === current?.id
     && (!doc.data().learningStage || doc.data().learningStage === 'independent')).slice(0, 8)) {
@@ -96,7 +99,7 @@ export async function loadTutor(uid: string, lessonId: string) {
   }
   return {
     db, lesson, lessonRef, lessonId, progressRef, sessionRef, concepts, current, state,
-    rubric, previousAssessment, evidenceSources, teachingStage,
+    rubric, previousAssessment, evidenceSources, teachingStage, introducedTerms,
     completedTitles: concepts.filter((concept) => demonstratedConcepts.includes(concept.id)).map((concept) => concept.title),
     activeExample: String(sessionSnapshot.data()?.activeExample ?? ''),
   }
@@ -132,7 +135,7 @@ export async function releaseTurn(context: TutorContext, requestId: string) {
 
 export async function saveTurn(context: TutorContext, requestId: string, answer: string,
   reply: string, passed: boolean, evidence: string, model: string, assessment?: ConceptAssessment,
-  teaching?: { stage: LearningStage; example: string }) {
+  teaching?: { stage: LearningStage; example: string; introducedTerms?: string[] }) {
   const current = context.current
   if (!current) throw new TutorError(409, 'The conceptual section is already complete.')
   if (passed && context.teachingStage !== 'independent') throw new TutorError(409, 'Complete guided practice before independent assessment.')
@@ -178,6 +181,7 @@ export async function saveTurn(context: TutorContext, requestId: string, answer:
     })
     transaction.update(context.sessionRef, {
       revision, pendingTurn: null, updatedAt: now,
+      introducedTerms: [...new Set([...context.introducedTerms, ...(teaching?.introducedTerms ?? [])])].slice(-40),
       conceptTeaching: {
         ...session.data()?.conceptTeaching,
         [current.id]: { stage: teaching?.stage ?? context.teachingStage },
