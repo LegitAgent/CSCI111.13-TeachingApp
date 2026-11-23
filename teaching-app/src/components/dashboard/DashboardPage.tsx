@@ -181,6 +181,7 @@ function DashboardPage({ dashboardSlug }: { dashboardSlug: string }) {
                       <div className="dashboard-progress-label"><span>Concept practice</span><strong>{conceptPercent}%</strong></div>
                       <progress className="dashboard-progress" aria-label={`${lesson.title}: concepts demonstrated`} value={conceptPercent} max={100} />
                       <dl className="dashboard-metrics">
+                        {/* Hello this a practice comment */}
                         <div><dt>Concepts demonstrated</dt><dd>{progress?.demonstratedConceptCount ?? 0} / {lesson.requiredConceptCount}</dd></div>
                         <div><dt>Best assessment score</dt><dd>{progress?.bestScore == null ? 'Not assessed' : `${progress.bestScore}%`}</dd></div>
                         <div><dt>Passing target</dt><dd>{lesson.passingScorePercent}%</dd></div>
