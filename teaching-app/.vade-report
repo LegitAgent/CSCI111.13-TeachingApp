@@ -1,0 +1,67 @@
+# Vercel Web Analytics Installation Report
+
+## Summary
+Successfully installed and configured Vercel Web Analytics for the PreCalPal teaching application following the official Vercel documentation.
+
+## Changes Made
+
+### 1. Package Installation
+- **Added**: `@vercel/analytics@2.0.1` to project dependencies
+- **Package Manager**: pnpm (as specified in package.json)
+- **Command Used**: `pnpm install @vercel/analytics`
+
+### 2. Code Changes
+- **Modified**: `src/app/layout.tsx`
+  - Added import for Analytics component: `import { Analytics } from '@vercel/analytics/react'`
+  - Integrated `<Analytics />` component in the root layout's body element, placed after `{children}` as recommended by Vercel documentation
+
+### 3. File Updates
+- `package.json` - Added @vercel/analytics dependency
+- `pnpm-lock.yaml` - Updated with new dependency tree
+- `src/app/layout.tsx` - Added Analytics import and component
+
+## Implementation Details
+
+### Framework Detection
+- Identified project as **Next.js App Router** (not Pages Router)
+- Located root layout at `src/app/layout.tsx`
+- Followed App Router-specific integration instructions from official docs
+
+### Analytics Component Placement
+Per Vercel's official documentation, the Analytics component was added to the root layout file within the `<body>` tag. This ensures:
+- Analytics tracking is initialized on all pages
+- Proper integration with Next.js routing system
+- Automatic page view tracking for client-side navigation
+
+### Code Structure Preservation
+- Maintained existing imports and metadata configuration
+- Preserved existing code style and formatting
+- No breaking changes to existing functionality
+
+## Verification Steps Completed
+
+1. ✅ **Build Verification**: Successfully built project with `pnpm run build`
+   - Compilation completed without errors
+   - TypeScript type checking passed
+   - All routes generated successfully
+
+2. ✅ **Linting**: Passed ESLint checks with `pnpm run lint`
+   - No linting errors introduced
+   - Code quality maintained
+
+3. ✅ **Lock File Updated**: pnpm-lock.yaml properly updated with new dependencies
+
+## Next Steps for Deployment
+
+To activate Web Analytics:
+1. Enable Web Analytics in the Vercel dashboard for this project
+2. Deploy the application using `vercel deploy` or through Git integration
+3. Analytics will begin collecting data immediately upon deployment
+4. Verify proper setup by checking for Fetch/XHR requests to `/_vercel/insights/*` in browser DevTools
+
+## Notes
+
+- Analytics component is framework-aware and handles Next.js routing automatically
+- No additional configuration is required in next.config.js
+- Data collection begins automatically after deployment with analytics enabled in Vercel dashboard
+- Dashboard visibility and insights will improve after a few days of visitor traffic
