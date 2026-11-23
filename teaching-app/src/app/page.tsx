@@ -19,7 +19,7 @@ export default function HomePage() {
         </div>
         <div className="home-hero-art">
           <MathBackdrop />
-          <span className="home-art-note home-art-note-top">“But WHYc does it work?”</span>
+          <span className="home-art-note home-art-note-top">“But WHY does it work?”</span>
           <Image src="/favicon.svg" alt="The smiling PreCalPal mascot wearing glasses" width={250} height={250} preload />
           <span className="home-art-note home-art-note-bottom"><span aria-hidden="true">✦</span> That’s a great place to start.</span>
         </div>
