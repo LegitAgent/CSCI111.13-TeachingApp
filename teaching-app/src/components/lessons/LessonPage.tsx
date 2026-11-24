@@ -417,35 +417,103 @@ function RationalIntroduction() {
 
       <p><strong>Sign chart:</strong></p>
 
-      <div style={{ width: "100%", overflowX: "auto" }}>
-        <svg viewBox="0 0 760 115" width="100%" role="img"
-          aria-label="Sign chart showing negative, positive, negative, and positive intervals">
-          <g fontSize="22" fontWeight="bold"
-            fill="currentColor" textAnchor="middle">
-            <text x="155" y="25">−− −</text>
-            <text x="330" y="25">+ + +</text>
-            <text x="480" y="25">− − −</text>
-            <text x="655" y="25">+ + +</text>
+      <div className="lesson-table-scroll">
+        <svg
+          viewBox="0 0 880 155"
+          width="100%"
+          role="img"
+          aria-label="Sign chart showing negative, positive, negative, and positive intervals, with the solution intervals highlighted"
+          style={{ width: "100%", minWidth: "500px", height: "auto" }}
+        >
+          {/* Sign indicators */}
+          <g
+            fill="currentColor"
+            fontSize="27"
+            textAnchor="middle"
+          >
+            <text x="185" y="43">− − − − −</text>
+            <text x="375" y="43">+ + + +</text>
+            <text x="535" y="43">− − − −</text>
+            <text x="710" y="43">+ + + + +</text>
           </g>
-          <line x1="30" y1="65" x2="730" y2="65"
-            stroke="currentColor" strokeWidth="2" />
-          {[255, 405, 555].map(x => (
-            <line key={x} x1={x} y1="10" x2={x} y2="65"
-              stroke="#888" strokeWidth="2" />
-          ))}
+
+          {/* Critical number separators */}
+          <g stroke="#888" strokeWidth="3">
+            <line x1="295" y1="5" x2="295" y2="62" />
+            <line x1="455" y1="5" x2="455" y2="62" />
+            <line x1="620" y1="5" x2="620" y2="62" />
+          </g>
+
+          {/* Base number line */}
+          <line
+            x1="45"
+            y1="82"
+            x2="835"
+            y2="82"
+            stroke="currentColor"
+            strokeWidth="3"
+          />
+
+          {/* Left arrow */}
+          <path
+            d="M45 82 L62 73 L62 91 Z"
+            fill="currentColor"
+          />
+
+          {/* Right arrow */}
+          <path
+            d="M835 82 L795 59 L805 82 L795 105 Z"
+            fill="#268044"
+          />
+
+          {/* Highlighted solution intervals */}
+          <g
+            stroke="#268044"
+            strokeWidth="12"
+            strokeLinecap="round"
+            fill="none"
+          >
+            <line x1="295" y1="82" x2="455" y2="82" />
+            <line x1="620" y1="82" x2="805" y2="82" />
+          </g>
+
+          {/* Tick marks */}
           {Array.from({ length: 14 }, (_, i) => {
-            const x = 55 + i * 50;
+            const x = 75 + i * 55;
             return (
               <g key={i}>
-                <line x1={x} y1="60" x2={x} y2="70"
-                  stroke="currentColor" />
-                <text x={x} y="90" textAnchor="middle"
-                  fontSize="15" fill="currentColor">
+                <line
+                  x1={x}
+                  y1="73"
+                  x2={x}
+                  y2="91"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+                <text
+                  x={x}
+                  y="115"
+                  textAnchor="middle"
+                  fontSize="21"
+                  fill="currentColor"
+                >
                   {i - 6}
                 </text>
               </g>
             );
           })}
+
+          {/* Critical points */}
+          <circle cx="295" cy="82" r="8" fill="#268044" />
+          <circle
+            cx="455"
+            cy="82"
+            r="8"
+            fill="none"
+            stroke="#268044"
+            strokeWidth="4"
+          />
+          <circle cx="620" cy="82" r="8" fill="#268044" />
         </svg>
       </div>
 
