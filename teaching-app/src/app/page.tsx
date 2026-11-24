@@ -11,7 +11,7 @@ export default function HomePage() {
     <main className="home-page" id="main-content">
       <section className="home-hero" aria-labelledby="home-heading">
         <div className="home-hero-copy">
-          <span className="home-pill"><span aria-hidden="true">✧</span> A WAY TO LEARN PRECALCULUS</span>
+          <span className="home-pill"><span aria-hidden="true">✧</span> A FRIENDLIER WAY TO LEARN PRECALCULUS</span>
           <h1 id="home-heading">Make sense<br />of the <span>math.</span></h1>
           <p>Big ideas start with small questions. Explore inequalities, talk things through with your AI tutor, and build understanding that sticks.</p>
           <div className="home-actions"><Link className="home-primary" href="/signup">Find your starting point <span aria-hidden="true">→</span></Link><Link href="/login">Already learning? Log in</Link></div>
