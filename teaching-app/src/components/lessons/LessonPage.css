@@ -52,3 +52,10 @@
   .tutor-popup-header h2 { font-size: 17px; }
   .lesson-reading { font-size: 15px; }
 }
+.math-expression {
+  font-family: inherit;
+  font-size: 1.3rem;
+  text-align: center;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
