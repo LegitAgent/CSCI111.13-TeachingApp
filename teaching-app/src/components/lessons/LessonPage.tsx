@@ -154,72 +154,169 @@ export default function LessonPage({ dashboardSlug, lessonId, chatOnly = false, 
   )
 }
 
-
-
 function RationalIntroduction() {
   return (
     <section
       className="lesson-section lesson-reading"
       aria-labelledby="introduction-heading"
     >
-      <h2 id="introduction-heading">What are rational inequalities?</h2>
+      <h2 id="introduction-heading">Introduction to Rational Inequalities</h2>
 
-      <p>
-        <strong>Recall:</strong> A rational expression is the ratio of
-        two polynomials, written in the form p(x)/q(x). Take note that
-        q(x) must not be zero, as the expression would then be undefined.
-      </p>
+      <h3>What are rational inequalities?</h3>
 
-      <p>
-        Rational inequalities are inequalities involving rational
-        expressions. They compare rational expressions using the
-        inequality symbols &lt;, &gt;, ≤, or ≥.
-      </p>
-
-      <p>
-        Solving rational inequalities is similar to solving linear
-        inequalities, except we must also exclude values that make
-        the rational expression undefined. These are the values that
-        make the denominator zero.
-      </p>
+      <ul>
+        <li>
+          <strong>RECALL:</strong> A rational expression is the ratio of two
+          polynomials, written in the form p/q. Take note that the value of q
+          must not be zero, as the expression would then be undefined.
+        </li>
+        <li>
+          Rational inequalities are inequalities involving rational
+          expressions.
+        </li>
+        <li>
+          Solving rational inequalities is similar to solving linear
+          inequalities, except we must also take note to exclude values which
+          will make the rational expression undefined. In simple terms, these
+          are the values that make the denominator zero. These values are
+          never part of the solution set.
+        </li>
+      </ul>
 
       <h3>Steps to solving rational inequalities</h3>
 
       <ol>
         <li>
-          <strong>Write the inequality as one quotient.</strong>
-          <p>Rearrange the inequality so that one rational expression
-            is on the left and zero is on the right.</p>
+          Write the inequality as one quotient on the left and zero on the
+          right.
         </li>
-
         <li>
-          <strong>Determine the critical numbers.</strong>
+          Determine the critical numbers:
           <ul>
-            <li>Find the values that make the numerator equal to zero.</li>
-            <li>Find the values that make the denominator equal to zero.
-              These are restrictions and are never included in the solution.</li>
+            <li>
+              Solve f(x) = 0. Find values that make the numerator of f(x)
+              zero.
+            </li>
+            <li>
+              Solve f(x) = undefined. Find values that make the denominator
+              of f(x) zero.
+              <ul>
+                <li>
+                  These values are not part of the domain of f(x). Therefore,
+                  these critical numbers are never part of the solution set.
+                </li>
+              </ul>
+            </li>
           </ul>
         </li>
-
         <li>
-          <strong>Divide the number line into intervals.</strong>
-          <p>Arrange the critical numbers from least to greatest.
-            Use these numbers to divide the number line into intervals.</p>
+          Use the critical points to divide the number line into intervals.
         </li>
+      </ol>
 
+      <h3>Number line of critical numbers</h3>
+
+      <p>
+        The critical numbers divide the number line into intervals. For
+        illustration, consider the critical numbers -2, 1, and 4.
+      </p>
+
+      <div className="lesson-table-scroll">
+        <svg
+          viewBox="0 0 700 125"
+          role="img"
+          aria-label="Number line divided by critical numbers negative two, one, and four"
+          style={{ width: "100%", minWidth: "420px", height: "auto" }}
+        >
+          <line x1="55" y1="55" x2="645" y2="55" stroke="currentColor" strokeWidth="2" />
+          <path d="M55 55 L65 49 L65 61 Z" fill="currentColor" />
+          <path d="M645 55 L635 49 L635 61 Z" fill="currentColor" />
+
+          {[150, 350, 550].map((x) => (
+            <line key={x} x1={x} y1="42" x2={x} y2="68" stroke="currentColor" strokeWidth="2" />
+          ))}
+
+          {[150, 350, 550].map((x) => (
+            <circle key={x} cx={x} cy="55" r="5" fill="var(--purple)" />
+          ))}
+
+          <g fill="currentColor" fontSize="15" textAnchor="middle">
+            <text x="150" y="90">-2</text>
+            <text x="350" y="90">1</text>
+            <text x="550" y="90">4</text>
+            <text x="90" y="30">−∞</text>
+            <text x="610" y="30">∞</text>
+          </g>
+
+          <g fill="var(--purple-dark)" fontSize="13" textAnchor="middle">
+            <text x="100" y="115">I</text>
+            <text x="250" y="115">II</text>
+            <text x="450" y="115">III</text>
+            <text x="600" y="115">IV</text>
+          </g>
+        </svg>
+      </div>
+
+      <p>
+        The critical numbers divide the number line into four intervals:
+        (-∞, -2), (-2, 1), (1, 4), and (4, ∞).
+      </p>
+
+      <ol start={4}>
         <li>
-          <strong>Create a sign chart.</strong>
-          <p>Choose a test value for each interval, including the
-            intervals to the left and right of all critical numbers.
-            Evaluate the expression and record whether the result is
-            positive or negative.</p>
+          Create a sign chart. Choose a test value for each interval of the
+          number line, including the ones to the left and the right of all the
+          critical values. For each test value f(v), determine if f(v) is
+          positive or negative and record it on the sign chart.
         </li>
+      </ol>
 
+      <h3>Example sign chart</h3>
+
+      <p>
+        The following is an illustration of how signs can be recorded for
+        each interval.
+      </p>
+
+      <div className="lesson-table-scroll">
+        <table>
+          <caption>Sign chart illustration</caption>
+          <thead>
+            <tr>
+              <th>Interval</th>
+              <th>Test value</th>
+              <th>Sign of f(x)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>(-∞, -2)</td>
+              <td>-4</td>
+              <td>−</td>
+            </tr>
+            <tr>
+              <td>(-2, 1)</td>
+              <td>0</td>
+              <td>+</td>
+            </tr>
+            <tr>
+              <td>(1, 4)</td>
+              <td>2</td>
+              <td>−</td>
+            </tr>
+            <tr>
+              <td>(4, ∞)</td>
+              <td>6</td>
+              <td>+</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ol start={5}>
         <li>
-          <strong>Determine the solution set.</strong>
-          <p>Identify the intervals where the inequality is satisfied.
-            Include numerator zeros only when equality is allowed,
-            and always exclude denominator restrictions.</p>
+          Determine the intervals where the inequality is correct. Write the
+          solution in interval notation.
         </li>
       </ol>
 
