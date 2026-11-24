@@ -24,6 +24,7 @@ import {
 import '@/components/auth/LoginPage.css'
 import Brand from '@/components/layout/Brand'
 import MathBackdrop from '@/components/layout/MathBackdrop'
+import { googleSignInError } from '@/lib/googleSignInError'
 
 type AuthPageProps = {
   mode: 'login' | 'signup'
@@ -97,8 +98,15 @@ function AuthPage({ mode }: AuthPageProps) {
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider())
       router.replace(getDashboardPath(result.user) ?? '/signup')
-    } catch {
-      setMessage('Google sign-in was not completed.')
+    } catch (error) {
+      const failure = googleSignInError(error)
+      setMessage(failure.message)
+      // Log configuration context only, never provider responses or OAuth credentials.
+      console.error('Google sign-in failed', {
+        code: failure.code,
+        hostname: window.location.hostname,
+        projectId: auth.app.options.projectId,
+      })
     } finally {
       setIsSubmitting(false)
     }

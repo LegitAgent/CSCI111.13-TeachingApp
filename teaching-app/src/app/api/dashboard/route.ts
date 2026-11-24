@@ -17,10 +17,12 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Sign in to view your dashboard.' }, { status: 401, headers })
   }
 
+  let phase = 'initialize-admin'
   try {
     const adminAuth = getAdminAuth()
     let uid: string
 
+    phase = 'verify-session'
     try {
       const decodedToken = await adminAuth.verifyIdToken(token)
       uid = decodedToken.uid
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
       throw error
     }
 
+    phase = 'read-firestore'
     const db = getAdminFirestore()
     const [lessonSnapshot, progressSnapshot] = await Promise.all([
       db.collection('lessons').where('published', '==', true).get(),
@@ -66,7 +69,12 @@ export async function GET(request: Request) {
     }).sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
 
     return Response.json({ lessons } satisfies DashboardData, { headers })
-  } catch {
+  } catch (error) {
+    console.error('Dashboard request failed', {
+      phase,
+      name: error instanceof Error ? error.name : 'UnknownError',
+      code: error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined,
+    })
     return Response.json({ error: 'Could not load your dashboard. Please try again.' }, { status: 500, headers })
   }
 }

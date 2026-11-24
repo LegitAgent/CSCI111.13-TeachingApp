@@ -3,7 +3,7 @@ import { randomInt } from 'node:crypto'
 import { getAdminFirestore } from '@app-firebase/admin'
 import { TutorError } from './tutor'
 import { parseIntervals, readAnswerKey, sameIntervals } from './intervals'
-import type { AssessmentAttempt, AssessmentData, QuestionResult } from '@/types/assessment'
+import type { AssessmentAttempt, AssessmentChoice, AssessmentData, QuestionResult } from '@/types/assessment'
 import type { DocumentSnapshot } from 'firebase-admin/firestore'
 
 export async function assessmentContext(uid: string, lessonId: string) {
@@ -32,7 +32,11 @@ export function publicAttempt(snapshot: DocumentSnapshot): AssessmentAttempt {
   return {
     id: snapshot.id,
     status: value.status === 'submitted' ? 'submitted' : 'in-progress',
-    questions: value.questions.map((question: { id: string; prompt: string }) => ({ id: question.id, prompt: question.prompt })),
+    questions: value.questions.map((question: { id: string; prompt: string; format?: string; choices?: AssessmentChoice[] }) => ({
+      id: question.id, prompt: question.prompt,
+      ...(question.format === 'multiple-choice' ? { format: 'multiple-choice' as const,
+        choices: (question.choices ?? []).map(({ id, text }) => ({ id, text })) } : {}),
+    })),
     passingScorePercent: value.passingScorePercent,
     score: value.status === 'submitted' ? value.score : null,
     passed: value.status === 'submitted' ? value.passed : null,
@@ -52,23 +56,50 @@ export async function currentAssessment(context: AssessmentContext): Promise<Ass
 
 export async function startAssessment(context: AssessmentContext, retry: boolean): Promise<AssessmentData> {
   const questions = await context.lessonRef.collection('questions').where('active', '==', true).get()
-  const bank = questions.docs.filter((doc) => doc.data().format === 'interval-input')
+  const bank = questions.docs.filter((doc) => ['interval-input', 'multiple-choice'].includes(doc.data().format))
   if (bank.length < 5) throw new TutorError(409, 'This lesson needs five active test questions before its test can start.')
   for (let index = bank.length - 1; index > 0; index--) {
     const swap = randomInt(index + 1)
     ;[bank[index], bank[swap]] = [bank[swap], bank[index]]
   }
-  const selected = await Promise.all(bank.slice(0, 5).map(async (doc) => {
+  // Include conceptual notation questions when both formats are available.
+  const intervalQuestions = bank.filter((doc) => doc.data().format === 'interval-input')
+  const choiceQuestions = bank.filter((doc) => doc.data().format === 'multiple-choice')
+  const mixed = intervalQuestions.length && choiceQuestions.length
+    ? [...intervalQuestions.slice(0, 3), ...choiceQuestions.slice(0, 2)] : []
+  const selectedIds = new Set(mixed.map((doc) => doc.id))
+  const chosen = mixed.length ? [...mixed, ...bank.filter((doc) => !selectedIds.has(doc.id))].slice(0, 5) : bank.slice(0, 5)
+  for (let index = chosen.length - 1; index > 0; index--) {
+    const swap = randomInt(index + 1)
+    ;[chosen[index], chosen[swap]] = [chosen[swap], chosen[index]]
+  }
+  const selected = await Promise.all(chosen.map(async (doc) => {
     const question = doc.data()
     const version = question.version ?? 1
     const key = (await context.db.collection('answerKeys').doc(`${doc.id}-v${version}`).get()).data()
     if (!key || key.lessonId !== context.lessonId || key.questionId !== doc.id || key.questionVersion !== version) {
       throw new TutorError(409, 'A test question needs a matching answer key before the test can start.')
     }
-    try { readAnswerKey(key.intervals) } catch { throw new TutorError(409, 'A test answer key has invalid interval data.') }
-    if (typeof question.prompt !== 'string' || typeof key.answerDisplay !== 'string' || typeof key.explanation !== 'string') {
+    if (typeof question.prompt !== 'string' || !question.prompt.trim() || typeof key.explanation !== 'string') {
       throw new TutorError(409, 'A test question is missing its prompt, answer, or explanation.')
     }
+    if (question.format === 'multiple-choice') {
+      const raw: unknown = question.choices
+      if (!Array.isArray(raw) || raw.length < 2 || raw.length > 6 || raw.some((choice) =>
+        !choice || typeof choice.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(choice.id)
+        || typeof choice.text !== 'string' || !choice.text.trim() || choice.text.length > 1000)) {
+        throw new TutorError(409, 'A multiple-choice question needs two to six valid choices.')
+      }
+      const choices: AssessmentChoice[] = raw.map(({ id, text }) => ({ id, text }))
+      if (new Set(choices.map((choice) => choice.id)).size !== choices.length
+        || typeof key.correctChoiceId !== 'string' || !choices.some((choice) => choice.id === key.correctChoiceId)) {
+        throw new TutorError(409, 'A multiple-choice question needs a matching correct choice in its private answer key.')
+      }
+      return { id: doc.id, prompt: question.prompt, version, format: 'multiple-choice', choices,
+        correctChoiceId: key.correctChoiceId, answerDisplay: choices.find((choice) => choice.id === key.correctChoiceId)!.text, explanation: key.explanation }
+    }
+    try { readAnswerKey(key.intervals) } catch { throw new TutorError(409, 'A test answer key has invalid interval data.') }
+    if (typeof key.answerDisplay !== 'string') throw new TutorError(409, 'A test answer key needs a display answer.')
     return { id: doc.id, prompt: question.prompt, version, intervals: key.intervals, answerDisplay: key.answerDisplay, explanation: key.explanation }
   }))
   const attemptRef = context.attempts.doc()
@@ -108,9 +139,16 @@ export async function submitAssessment(context: AssessmentContext, attemptId: un
     if (data.status === 'submitted') return
     if (progress.data()?.activeAssessmentId !== attemptId) throw new TutorError(409, 'Open your current test attempt before submitting.')
     if (Object.keys(submitted).length !== data.questions.length) throw new TutorError(400, 'Answer every question before submitting.')
-    const results: QuestionResult[] = data.questions.map((question: { id: string; intervals: unknown; answerDisplay: string; explanation: string }, index: number) => {
+    const results: QuestionResult[] = data.questions.map((question: { id: string; intervals: unknown; answerDisplay: string; explanation: string;
+      format?: string; choices?: AssessmentChoice[]; correctChoiceId?: string }, index: number) => {
       const answer = submitted[question.id]
       if (typeof answer !== 'string' || !answer.trim() || answer.length > 500) throw new TutorError(400, `Enter an answer for question ${index + 1}.`)
+      if (question.format === 'multiple-choice') {
+        const choice = question.choices?.find((choice) => choice.id === answer.trim())
+        if (!choice) throw new TutorError(400, `Select one of the listed choices for question ${index + 1}.`)
+        return { questionId: question.id, answer: choice.text, correct: choice.id === question.correctChoiceId,
+          correctAnswer: question.answerDisplay, explanation: question.explanation }
+      }
       let parsed
       try { parsed = parseIntervals(answer) } catch { throw new TutorError(400, `Check the interval notation for question ${index + 1}. Use parentheses, brackets, and U for union.`) }
       return { questionId: question.id, answer: answer.trim(), correct: sameIntervals(parsed, readAnswerKey(question.intervals)), correctAnswer: question.answerDisplay, explanation: question.explanation }

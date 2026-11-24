@@ -6,6 +6,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth'
 import { redirect } from 'next/navigation'
 import { auth } from '@app-firebase/config'
 import { getDashboardPath, getUsername } from '@/lib/dashboardPath'
+import { readApiResponse } from '@/lib/readApiResponse'
 import type { DashboardData } from '@/types/dashboard'
 import DashboardConfetti from './DashboardConfetti'
 import AppHeader from '@/components/layout/AppHeader'
@@ -47,10 +48,8 @@ function DashboardPage({ dashboardSlug }: { dashboardSlug: string }) {
           cache: 'no-store',
           signal: controller.signal,
         })
-        const data = await response.json()
-        if (!response.ok) {
-          throw new Error(typeof data.error === 'string' ? data.error : 'Could not load your dashboard.')
-        }
+        const data = await readApiResponse<DashboardData>(response, 'Your dashboard is temporarily unavailable')
+        if (!data || !Array.isArray(data.lessons)) throw new Error('Your dashboard could not be loaded. Please try again.')
         if (!controller.signal.aborted) {
           const dashboardData = data as DashboardData
           const masteredIds = dashboardData.lessons.filter((lesson) => lesson.progress?.mastered).map((lesson) => lesson.id)

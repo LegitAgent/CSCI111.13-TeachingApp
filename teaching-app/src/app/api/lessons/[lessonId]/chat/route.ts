@@ -1,9 +1,10 @@
 import { authenticate, loadTutor, acquireTurn, releaseTurn, saveTurn, TutorError } from '@/server/tutor'
 import { completeMuse, readReplyPrefix, streamMuse } from '@/server/muse'
-import { assessmentSchema, buildTutorMessages, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } from '@/server/tutorRubric'
-import { buildTeachingMessages, familiarityQuestion, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } from '@/server/tutorTeaching'
+import { assessmentSchema, buildTutorMessages, collectStudentEvidence, isClarificationRequest, isProgressQuestion, parseConceptAssessment, progressReply } from '@/server/tutorRubric'
+import { buildTeachingMessages, knowsTopic, needsHelp, parseTeachingResponse, teachingSchema } from '@/server/tutorTeaching'
 import type { ConceptAssessment } from '@/server/tutorRubric'
 import type { LearningStage } from '@/server/tutorTeaching'
+import { rememberTerms, wantsIndependentAttempt, wantsThinkingSpace } from '@/server/tutorPedagogy'
 import type { ChatEvent } from '@/types/chat'
 
 export const runtime = 'nodejs'
@@ -60,9 +61,12 @@ export async function POST(request: Request, { params }: Context) {
     if (!context.current.successCriteria || !context.current.starterQuestion) throw new TutorError(409, 'This concept needs a question and evaluation criteria before tutoring can start.')
     const current = context.current
     if (isProgressQuestion(answer)) {
-      const reply = progressReply(context.completedTitles, current.title,
-        context.teachingStage === 'familiarity' ? familiarityQuestion(current) : current.starterQuestion)
+      const reply = progressReply(context.completedTitles, current.title)
       const saved = await saveTurn(context, requestId, answer, reply, false, '', 'progress-status')
+      return Response.json({ state: saved.state }, { headers })
+    }
+    if (wantsThinkingSpace(answer)) {
+      const saved = await saveTurn(context, requestId, answer, 'Of course—take your time. I’ll wait for your next thought.', false, '', 'thinking-space')
       return Response.json({ state: saved.state }, { headers })
     }
     if (context.teachingStage === 'familiarity' && knowsTopic(answer)) {
@@ -74,16 +78,18 @@ export async function POST(request: Request, { params }: Context) {
     if (!process.env.MUSE_CODE_API) throw new TutorError(503, 'The tutor is not configured. Set MUSE_CODE_API on the server.')
     const answerId = `${requestId}-user`
     const sources = new Map(context.evidenceSources)
-    sources.set(answerId, [answer])
+    for (const [id, texts] of collectStudentEvidence(context.evidenceMessages, { id: answerId, content: answer })) sources.set(id, texts)
     const helpRequested = isClarificationRequest(answer) || needsHelp(answer)
     const teachingTurn = context.teachingStage !== 'independent' || helpRequested
     const messages = teachingTurn ? buildTeachingMessages({
       title: String(context.lesson.title ?? context.lessonId), current, stage: context.teachingStage,
       activeExample: context.activeExample, history: context.state.messages, answer, helpRequested,
+      introducedTerms: context.introducedTerms, completedTitles: context.completedTitles,
     }) : buildTutorMessages({
       title: String(context.lesson.title ?? context.lessonId), current, rubric: context.rubric,
       previous: context.previousAssessment, completedTitles: context.completedTitles, activeExample: context.activeExample,
       history: context.state.messages, sources, answer, answerId,
+      introducedTerms: context.introducedTerms,
     })
 
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
@@ -141,22 +147,24 @@ export async function POST(request: Request, { params }: Context) {
           let assessment: ConceptAssessment | undefined
           let feedback = reply
           let teachingSuffix = ''
-          let teaching: { stage: LearningStage; example: string }
+          let teaching: { stage: LearningStage; example: string; introducedTerms?: string[] }
           if (teachingTurn) {
             const acknowledgement = /^(?:yes|yeah|yep|yup|sure|ok(?:ay)?|got it|i understand|makes sense)[.!?\s]*$/i.test(answer)
-            const result = parseTeachingResponse(json, activeContext.teachingStage === 'guided' && !helpRequested && !acknowledgement)
-            teaching = { stage: result.stage, example: result.example }
+            const result = parseTeachingResponse(json, activeContext.teachingStage === 'guided' && !helpRequested && (!acknowledgement || wantsIndependentAttempt(answer)))
+            teaching = { stage: result.stage, example: result.example,
+              introducedTerms: rememberTerms(activeContext.introducedTerms, result.introducedTerms, result.reply + result.suffix) }
             feedback = result.reply
             teachingSuffix = result.suffix
           } else {
             const evaluation = parseConceptAssessment(json, activeContext.rubric, sources)
-            teaching = { stage: evaluation.needsGuidance ? 'guided' : 'independent', example: evaluation.assessment.example }
+            teaching = { stage: evaluation.needsGuidance ? 'guided' : 'independent', example: evaluation.assessment.example,
+              introducedTerms: rememberTerms(activeContext.introducedTerms, evaluation.introducedTerms, reply) }
             // A request for teaching cannot award or revoke an existing checkpoint.
             if (!evaluation.needsGuidance) {
               assessment = evaluation.assessment
               passed = evaluation.passed
               evidence = evaluation.evidence
-              if (evaluation.incompleteEvidence) feedback = 'I need a little more detail to check your reasoning. Can you explain how you reached your conclusion?'
+              if (evaluation.incompleteEvidence) feedback = 'I couldn’t reliably assess that explanation yet. You can add to your reasoning or ask for help when you’re ready.'
             }
           }
           phase = 'save-conversation'

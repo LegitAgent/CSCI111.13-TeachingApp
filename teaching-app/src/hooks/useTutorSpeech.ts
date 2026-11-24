@@ -2,29 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ChatMessage } from '@/types/chat'
+import { toSpokenText } from '@/lib/mathText'
 
 const subscribe = () => () => {}
 const supportedInBrowser = () => typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
-
-function spokenText(text: string) {
-  return text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[*`#]/g, '')
-    .replace(/≤|<=/g, ' less than or equal to ')
-    .replace(/≥|>=/g, ' greater than or equal to ')
-    .replace(/≠|!=/g, ' not equal to ')
-    .replace(/</g, ' less than ')
-    .replace(/>/g, ' greater than ')
-    .replace(/=/g, ' equals ')
-    .replace(/−/g, ' minus ')
-    .replace(/∞/g, ' infinity ')
-    .replace(/∪/g, ' union ')
-    .replace(/∩/g, ' intersection ')
-    .replace(/∅/g, ' empty set ')
-    .replace(/²/g, ' squared ')
-    .replace(/³/g, ' cubed ')
-    .replace(/\s+/g, ' ').trim()
-}
 
 export function useTutorSpeech(active: boolean) {
   const supported = useSyncExternalStore(subscribe, supportedInBrowser, () => false)
@@ -44,7 +25,7 @@ export function useTutorSpeech(active: boolean) {
     if (!supported || !active || message.role !== 'assistant') return
     stop()
     setError('')
-    const request = new SpeechSynthesisUtterance(spokenText(message.content))
+    const request = new SpeechSynthesisUtterance(toSpokenText(message.content))
     const voices = window.speechSynthesis.getVoices()
     const voice = voices.find((voice) => voice.localService && /^en\b/i.test(voice.lang))
       ?? voices.find((voice) => /^en\b/i.test(voice.lang))

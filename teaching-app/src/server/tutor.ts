@@ -1,7 +1,7 @@
 import 'server-only'
 import { getAdminAuth, getAdminFirestore } from '@app-firebase/admin'
 import type { ChatMessage, ChatState } from '@/types/chat'
-import { buildRubric, type ConceptAssessment } from './tutorRubric'
+import { buildRubric, collectStudentEvidence, type ConceptAssessment } from './tutorRubric'
 import { familiarityQuestion, type LearningStage } from './tutorTeaching'
 
 export class TutorError extends Error {
@@ -67,12 +67,14 @@ export async function loadTutor(uid: string, lessonId: string) {
   const storedTeaching = current ? sessionSnapshot.data()?.conceptTeaching?.[current.id] : undefined
   const teachingStage: LearningStage = ['familiarity', 'guided', 'independent'].includes(storedTeaching?.stage)
     ? storedTeaching.stage : 'familiarity'
-  const evidenceSources = new Map<string, string[]>()
-  for (const doc of messageSnapshot.docs.filter((doc) => doc.data().role === 'user' && doc.data().conceptId === current?.id
-    && (!doc.data().learningStage || doc.data().learningStage === 'independent')).slice(0, 8)) {
+  const storedTerms = sessionSnapshot.data()?.introducedTerms
+  const introducedTerms: string[] = Array.isArray(storedTerms)
+    ? storedTerms.filter((term): term is string => typeof term === 'string' && term.length <= 80).slice(-40) : []
+  const evidenceMessages = messageSnapshot.docs.filter((doc) => doc.data().conceptId === current?.id).slice().reverse().map((doc) => {
     const value = doc.data()
-    if (value.role === 'user' && value.conceptId === current?.id && typeof value.content === 'string') evidenceSources.set(doc.id, [value.content])
-  }
+    return { id: doc.id, role: String(value.role), content: String(value.content ?? ''), learningStage: value.learningStage }
+  })
+  const evidenceSources = collectStudentEvidence(evidenceMessages)
   // Previously validated quotes retain evidence even after old turns leave the context window.
   for (const result of Object.values(previousAssessment?.criteria ?? {})) {
     for (const citation of result.evidence) {
@@ -96,7 +98,7 @@ export async function loadTutor(uid: string, lessonId: string) {
   }
   return {
     db, lesson, lessonRef, lessonId, progressRef, sessionRef, concepts, current, state,
-    rubric, previousAssessment, evidenceSources, teachingStage,
+    rubric, previousAssessment, evidenceSources, evidenceMessages, teachingStage, introducedTerms,
     completedTitles: concepts.filter((concept) => demonstratedConcepts.includes(concept.id)).map((concept) => concept.title),
     activeExample: String(sessionSnapshot.data()?.activeExample ?? ''),
   }
@@ -132,7 +134,7 @@ export async function releaseTurn(context: TutorContext, requestId: string) {
 
 export async function saveTurn(context: TutorContext, requestId: string, answer: string,
   reply: string, passed: boolean, evidence: string, model: string, assessment?: ConceptAssessment,
-  teaching?: { stage: LearningStage; example: string }) {
+  teaching?: { stage: LearningStage; example: string; introducedTerms?: string[] }) {
   const current = context.current
   if (!current) throw new TutorError(409, 'The conceptual section is already complete.')
   if (passed && context.teachingStage !== 'independent') throw new TutorError(409, 'Complete guided practice before independent assessment.')
@@ -178,6 +180,7 @@ export async function saveTurn(context: TutorContext, requestId: string, answer:
     })
     transaction.update(context.sessionRef, {
       revision, pendingTurn: null, updatedAt: now,
+      introducedTerms: [...new Set([...context.introducedTerms, ...(teaching?.introducedTerms ?? [])])].slice(-40),
       conceptTeaching: {
         ...session.data()?.conceptTeaching,
         [current.id]: { stage: teaching?.stage ?? context.teachingStage },

@@ -2,3 +2,7 @@ allowBuilds:
   '@firebase/util': true
   protobufjs: true
   re2: true
+
+# Firebase Admin's jwks-rsa dependency requires a CommonJS-compatible jose build.
+overrides:
+  'jwks-rsa>jose': '5.10.0'
