@@ -422,6 +422,86 @@ function RationalIntroduction() {
           viewBox="0 0 880 155"
           width="100%"
           role="img"
+          aria-label="Sign chart showing negative, positive, negative, and positive intervals"
+          style={{ width: "100%", minWidth: "500px", height: "auto" }}
+        >
+          {/* Sign indicators */}
+          <g fill="currentColor" fontSize="27" textAnchor="middle">
+            <text x="185" y="43">− − − − −</text>
+            <text x="375" y="43">+ + + +</text>
+            <text x="535" y="43">− − − −</text>
+            <text x="710" y="43">+ + + + +</text>
+          </g>
+
+          {/* Critical number separators */}
+          <g stroke="#888" strokeWidth="3">
+            <line x1="295" y1="5" x2="295" y2="62" />
+            <line x1="455" y1="5" x2="455" y2="62" />
+            <line x1="620" y1="5" x2="620" y2="62" />
+          </g>
+
+          {/* Number line */}
+          <line
+            x1="45"
+            y1="82"
+            x2="835"
+            y2="82"
+            stroke="currentColor"
+            strokeWidth="3"
+          />
+
+          {/* Tick marks and labels */}
+          {Array.from({ length: 14 }, (_, i) => {
+            const x = 75 + i * 55;
+            return (
+              <g key={i}>
+                <line
+                  x1={x}
+                  y1="73"
+                  x2={x}
+                  y2="91"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+                <text
+                  x={x}
+                  y="115"
+                  textAnchor="middle"
+                  fontSize="21"
+                  fill="currentColor"
+                >
+                  {i - 6}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Critical points */}
+          <circle cx="295" cy="82" r="8" fill="#268044" />
+          <circle
+            cx="455"
+            cy="82"
+            r="8"
+            fill="none"
+            stroke="#268044"
+            strokeWidth="4"
+          />
+          <circle cx="620" cy="82" r="8" fill="#268044" />
+        </svg>
+      </div>
+
+      <p><strong>Step 5. Determine the solution set.</strong></p>
+      <p>
+        We need the values for which the expression is positive or zero.
+        Therefore, select the positive intervals and include the
+        numerator zeros −2 and 4. Exclude the restriction 1.
+      </p>
+
+      <div className="lesson-table-scroll">
+        <svg
+          viewBox="0 0 880 155"
+          width="100%"
+          role="img"
           aria-label="Sign chart showing negative, positive, negative, and positive intervals, with the solution intervals highlighted"
           style={{ width: "100%", minWidth: "500px", height: "auto" }}
         >
@@ -516,13 +596,6 @@ function RationalIntroduction() {
           <circle cx="620" cy="82" r="8" fill="#268044" />
         </svg>
       </div>
-
-      <p><strong>Step 5. Determine the solution set.</strong></p>
-      <p>
-        We need the values for which the expression is positive or zero.
-        Therefore, select the positive intervals and include the
-        numerator zeros −2 and 4. Exclude the restriction 1.
-      </p>
 
       <p><strong>Answer in interval notation:</strong></p>
       <p className="math-expression">
