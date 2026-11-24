@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -214,54 +215,6 @@ function RationalIntroduction() {
         </li>
       </ol>
 
-      <h3>Number line of critical numbers</h3>
-
-      <p>
-        The critical numbers divide the number line into intervals. For
-        illustration, consider the critical numbers -2, 1, and 4.
-      </p>
-
-      <div className="lesson-table-scroll">
-        <svg
-          viewBox="0 0 700 125"
-          role="img"
-          aria-label="Number line divided by critical numbers negative two, one, and four"
-          style={{ width: "100%", minWidth: "420px", height: "auto" }}
-        >
-          <line x1="55" y1="55" x2="645" y2="55" stroke="currentColor" strokeWidth="2" />
-          <path d="M55 55 L65 49 L65 61 Z" fill="currentColor" />
-          <path d="M645 55 L635 49 L635 61 Z" fill="currentColor" />
-
-          {[150, 350, 550].map((x) => (
-            <line key={x} x1={x} y1="42" x2={x} y2="68" stroke="currentColor" strokeWidth="2" />
-          ))}
-
-          {[150, 350, 550].map((x) => (
-            <circle key={x} cx={x} cy="55" r="5" fill="var(--purple)" />
-          ))}
-
-          <g fill="currentColor" fontSize="15" textAnchor="middle">
-            <text x="150" y="90">-2</text>
-            <text x="350" y="90">1</text>
-            <text x="550" y="90">4</text>
-            <text x="90" y="30">−∞</text>
-            <text x="610" y="30">∞</text>
-          </g>
-
-          <g fill="var(--purple-dark)" fontSize="13" textAnchor="middle">
-            <text x="100" y="115">I</text>
-            <text x="250" y="115">II</text>
-            <text x="450" y="115">III</text>
-            <text x="600" y="115">IV</text>
-          </g>
-        </svg>
-      </div>
-
-      <p>
-        The critical numbers divide the number line into four intervals:
-        (-∞, -2), (-2, 1), (1, 4), and (4, ∞).
-      </p>
-
       <ol start={4}>
         <li>
           Create a sign chart. Choose a test value for each interval of the
@@ -271,52 +224,10 @@ function RationalIntroduction() {
         </li>
       </ol>
 
-      <h3>Example sign chart</h3>
-
-      <p>
-        The following is an illustration of how signs can be recorded for
-        each interval.
-      </p>
-
-      <div className="lesson-table-scroll">
-        <table>
-          <caption>Sign chart illustration</caption>
-          <thead>
-            <tr>
-              <th>Interval</th>
-              <th>Test value</th>
-              <th>Sign of f(x)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>(-∞, -2)</td>
-              <td>-4</td>
-              <td>−</td>
-            </tr>
-            <tr>
-              <td>(-2, 1)</td>
-              <td>0</td>
-              <td>+</td>
-            </tr>
-            <tr>
-              <td>(1, 4)</td>
-              <td>2</td>
-              <td>−</td>
-            </tr>
-            <tr>
-              <td>(4, ∞)</td>
-              <td>6</td>
-              <td>+</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
       <ol start={5}>
         <li>
-          Determine the intervals where the inequality is correct. Write the
-          solution in interval notation.
+          Determine the intervals where the inequality is fulfilled. Write the
+          solution in interval or set-builder notation.
         </li>
       </ol>
 
@@ -331,7 +242,7 @@ function RationalIntroduction() {
 
       <p><strong>Step 1. Write the inequality as one quotient.</strong></p>
       <p>The inequality is already written as one rational expression
-        compared with zero.</p>
+        equal to zero.</p>
 
       <p><strong>Step 2. Determine the critical numbers.</strong></p>
       <p>The numerator zeros and denominator restrictions are:</p>
@@ -360,7 +271,7 @@ function RationalIntroduction() {
       <p>
         Therefore, the critical numbers are −2, 1, and 4.
         Because the inequality is ≥, use closed dots for −2 and 4.
-        Use an open dot for 1 because it makes the denominator zero.
+        Use an open dot for 1 because it makes the denominator zero, so it is not part of the solution set.
       </p>
 
       <div style={{ width: "100%", overflowX: "auto" }}>
@@ -389,14 +300,78 @@ function RationalIntroduction() {
       </div>
 
       <p><strong>Step 3. Divide the number line into intervals.</strong></p>
-      <p>These critical numbers divide the number line into four intervals:</p>
 
-      <ul>
-        <li>(−∞, −2)</li>
-        <li>(−2, 1)</li>
-        <li>(1, 4)</li>
-        <li>(4, ∞)</li>
-      </ul>
+      <div className="lesson-table-scroll">
+        <svg
+          viewBox="0 0 760 115"
+          width="100%"
+          role="img"
+          aria-label="Number line divided into four intervals by negative two, one, and four"
+          style={{ width: "100%", minWidth: "420px", height: "auto" }}
+        >
+          <line
+            x1="30"
+            y1="48"
+            x2="730"
+            y2="48"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+
+          {Array.from({ length: 14 }, (_, i) => {
+            const x = 55 + i * 50;
+            return (
+              <g key={i}>
+                <line
+                  x1={x}
+                  y1="43"
+                  x2={x}
+                  y2="53"
+                  stroke="currentColor"
+                />
+                <text
+                  x={x}
+                  y="72"
+                  textAnchor="middle"
+                  fontSize="15"
+                  fill="currentColor"
+                >
+                  {i - 6}
+                </text>
+              </g>
+            );
+          })}
+
+          <circle cx="255" cy="48" r="7" fill="#268044" />
+
+          <circle
+            cx="405"
+            cy="48"
+            r="7"
+            fill="none"
+            stroke="#268044"
+            strokeWidth="3"
+          />
+
+          <circle cx="555" cy="48" r="7" fill="#268044" />
+
+          <g
+            fill="var(--purple-dark)"
+            fontSize="13"
+            textAnchor="middle"
+          >
+            <text x="155" y="105">I</text>
+            <text x="330" y="105">II</text>
+            <text x="480" y="105">III</text>
+            <text x="655" y="105">IV</text>
+          </g>
+        </svg>
+      </div>
+
+      <p>
+        The critical numbers divide the number line into four intervals:
+        (-∞, -2), (-2, 1), (1, 4), and (4, ∞).
+      </p>
 
       <p><strong>Step 4. Create a sign chart.</strong></p>
       <p>Use test values x = −4, 0, 2, and 6.</p>
@@ -447,7 +422,7 @@ function RationalIntroduction() {
           aria-label="Sign chart showing negative, positive, negative, and positive intervals">
           <g fontSize="22" fontWeight="bold"
             fill="currentColor" textAnchor="middle">
-            <text x="155" y="25">− − −</text>
+            <text x="155" y="25">−− −</text>
             <text x="330" y="25">+ + +</text>
             <text x="480" y="25">− − −</text>
             <text x="655" y="25">+ + +</text>
